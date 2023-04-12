@@ -29,6 +29,15 @@ public class BankContext : DbContext
             .WithOne(e => e.CreditAccount)
             .HasForeignKey(e => e.CreditAccountId)
             .IsRequired();
+
+        modelBuilder.Entity<Account>()
+            .Property(e => e.Balance)
+            .HasDefaultValue(0)
+            .IsRequired();
+
+        modelBuilder.Entity<Transaction>()
+            .Property(e => e.Amount)
+            .IsRequired();
     }
 }
 
