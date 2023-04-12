@@ -4,15 +4,26 @@ using Microsoft.Extensions.Options;
 
 namespace SagaBank.Kafka;
 
-public class Producer
+public sealed class Producer : IDisposable
 {
     private readonly IOptions<ProducerConfig> _options;
     private readonly ILogger _logger;
+
+    private readonly Lazy<IProducer<string, string>> _producer;
 
     public Producer(ILogger<Producer> logger, IOptions<ProducerConfig> options)
     {
         _logger = logger;
         _options = options;
+        _producer = new(() => new ProducerBuilder<string, string>(_options.Value).Build());
+    }
+
+    public void Dispose()
+    {
+        if(_producer is { IsValueCreated: true, Value: IProducer<string, string> producer })
+        {
+            producer.Dispose();
+        }
     }
 
     public void ProduceDummyData(string topic)
@@ -20,7 +31,7 @@ public class Producer
         string[] users = { "eabara", "jsmith", "sgarcia", "jbernard", "htanaka", "awalther" };
         string[] items = { "book", "alarm clock", "t-shirts", "gift card", "batteries" };
 
-        using var producer = new ProducerBuilder<string, string>(_options.Value).Build();
+        var producer = _producer.Value;
         var numProduced = 0;
         var rnd = Random.Shared;
 
