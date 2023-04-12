@@ -1,0 +1,35 @@
+# tye application configuration file
+# read all about it at https://github.com/dotnet/tye
+#
+# when you've given us a try, we'd love to know what you think:
+#    https://aka.ms/AA7q20u
+#
+name: sagabank
+services:
+- name: sagabank-backend
+  project: src/SagaBank.Backend/SagaBank.Backend.csproj
+- name: sagabank-frontend
+  project: src/SagaBank.Frontend/SagaBank.Frontend.csproj
+- name: sagabank-fraud
+  project: src/SagaBank.Fraud/SagaBank.Fraud.csproj
+- name: sagabank-validation
+  project: src/SagaBank.Validation/SagaBank.Validation.csproj
+
+- name: sagabank-kafka-zookeeper
+  image: confluentinc/cp-zookeeper:7.3.2
+  env:
+  - ZOOKEEPER_CLIENT_PORT=2181
+  - ZOOKEEPER_TICK_TIME=2000
+
+- name: sagabank-kafka-broker
+  image: confluentinc/cp-kafka:7.3.2
+  bindings:
+  - port: 9092
+  env:
+  - KAFKA_BROKER_ID=1
+  - KAFKA_ZOOKEEPER_CONNECT="sagabank-kafka-zookeeper:2181"
+  - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP="PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT"
+  - KAFKA_ADVERTISED_LISTENERS="PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://broker:29092"
+  - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+  - KAFKA_TRANSACTION_STATE_LOG_MIN_ISR=1
+  - KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1
