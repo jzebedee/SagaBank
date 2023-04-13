@@ -3,13 +3,14 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using SagaBank.Backend;
+using SagaBank.Backend.Models;
 using SagaBank.Kafka;
 using SagaBank.Kafka.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var dbConnectionString = builder.Configuration.GetConnectionString(nameof(BankContext));
-builder.Services.AddDbContext<BankContext>(options => options.UseSqlite(dbConnectionString));
+var dbConnectionString = builder.Configuration.GetConnectionString(nameof(AccountContext));
+builder.Services.AddDbContext<AccountContext>(options => options.UseSqlite(dbConnectionString));
 
 var kafkaSection = builder.Configuration.GetSection("Kafka");
 builder.Services.AddKafkaProducer(configure => kafkaSection.GetSection(nameof(ProducerConfig)).Bind(configure));
@@ -20,7 +21,7 @@ var app = builder.Build();
 //FIXME: only for demo, don't use Migrate() in prod
 {
     using var scope = app.Services.CreateScope();
-    var bank = scope.ServiceProvider.GetRequiredService<BankContext>();
+    var bank = scope.ServiceProvider.GetRequiredService<AccountContext>();
     bank.Database.Migrate();
 }
 
@@ -28,14 +29,34 @@ app.MapGet("/", () => $"Hello World! It's {DateTimeOffset.Now}");
 app.MapGet("/produce", ([FromServices] Producer producer) => producer.ProduceDummyData(kafkaSection["Topic"]));
 app.MapGet("/consume", ([FromServices] Consumer consumer) => consumer.ConsumeDummyData(kafkaSection["Topic"]));
 
-app.MapGet("/accounts/{id}", (int id, [FromServices] BankContext bank)
-    => bank.Accounts.SingleOrDefault(a => a.AccountId == id) switch
+//app.MapGet("/audit/{id}", (int id) =>
+//{
+
+//});
+app.MapPost("/transactions",
+    ([FromBody] Transaction tx) =>
+    {
+        if(tx.DebitAccountId == tx.CreditAccountId)
+        {
+            return Results.BadRequest("Debit and credit accounts can not be the same");
+        }
+
+        if(tx.Amount <= 0)
+        {
+            return Results.BadRequest("Amount must be greater than zero");
+        }
+
+        return Results.Ok(tx);
+    });
+app.MapGet("/accounts/{id}",
+    (int id, [FromServices] AccountContext bank) =>
+    bank.Accounts.SingleOrDefault(a => a.AccountId == id) switch
     {
         Account account => Results.Ok(account),
         null => Results.NotFound()
     });
 app.MapPost("/accounts",
-    (Account account, [FromServices] BankContext bank, [FromServices] ILogger<Program> logger) =>
+    (Account account, [FromServices] AccountContext bank, [FromServices] ILogger<Program> logger) =>
     {
         try
         {
