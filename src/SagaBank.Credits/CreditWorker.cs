@@ -26,7 +26,6 @@ public class CreditWorker : BackgroundService
         {
             _logger.LogInformation("{worker} running at: {time}", nameof(CreditWorker), DateTimeOffset.Now);
             Consume();
-            await Task.Delay(500, stoppingToken);
         }
     }
 
