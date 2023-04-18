@@ -35,17 +35,7 @@ public sealed class Consumer<TKey, TValue> : IDisposable
 
     public Message<TKey, TValue>? Consume(string topic, CancellationToken cancellationToken = default)
     {
-        var consumer = _consumers.GetOrAdd(topic, t => new(() =>
-        {
-            var builder = new ConsumerBuilder<TKey, TValue>(_options.Value);
-            builder.SetKeyDeserializer(KafkaMemoryPackDeserializer<TKey>.Instance);
-            builder.SetValueDeserializer(KafkaMemoryPackDeserializer<TValue>.Instance);
-
-            var c = builder.Build();
-            c.Subscribe(t);
-            return c;
-        })).Value;
-
+        var consumer = _consumers.GetOrAdd(topic, t => new(() => CreateConsumer(t))).Value;
         if (consumer.Consume(cancellationToken) is ConsumeResult<TKey, TValue> cr)
         {
             _logger.LogInformation("Consumed event from topic {topic} with key {key,-10} and value {value}", topic, cr.Message.Key, cr.Message.Value);
@@ -54,5 +44,16 @@ public sealed class Consumer<TKey, TValue> : IDisposable
 
         _logger.LogWarning("Failed to consume any event");
         return null;
+    }
+
+    private IConsumer<TKey, TValue> CreateConsumer(string topic)
+    {
+        var builder = new ConsumerBuilder<TKey, TValue>(_options.Value);
+        builder.SetKeyDeserializer(KafkaMemoryPackDeserializer<TKey>.Instance);
+        builder.SetValueDeserializer(KafkaMemoryPackDeserializer<TValue>.Instance);
+
+        var c = builder.Build();
+        c.Subscribe(topic);
+        return c;
     }
 }
