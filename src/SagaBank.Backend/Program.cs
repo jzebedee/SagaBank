@@ -10,8 +10,8 @@ using SagaBank.Shared.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var dbConnectionString = builder.Configuration.GetConnectionString(nameof(AccountContext));
-builder.Services.AddDbContext<AccountContext>(options => options.UseSqlite(dbConnectionString));
+var dbConnectionString = builder.Configuration.GetConnectionString(nameof(BankContext));
+builder.Services.AddDbContext<BankContext>(options => options.UseSqlite(dbConnectionString));
 
 var kafkaSection = builder.Configuration.GetSection("Kafka");
 builder.Services.AddKafkaProducer<int, Debit>(configure => kafkaSection.GetSection(nameof(ProducerConfig)).Bind(configure));
@@ -23,7 +23,7 @@ var app = builder.Build();
 //FIXME: only for demo, don't use Migrate() in prod
 {
     using var scope = app.Services.CreateScope();
-    var bank = scope.ServiceProvider.GetRequiredService<AccountContext>();
+    var bank = scope.ServiceProvider.GetRequiredService<BankContext>();
     bank.Database.Migrate();
 }
 
@@ -46,7 +46,7 @@ app.MapGet("/transactions/{id}", (Ulid id) =>
     })
     .WithName("GetTransactions");
 app.MapPost("/transactions",
-    ([FromBody] Transaction tx, AccountContext bank, Producer<int, Debit> debitProducer, Producer<int, Credit> creditProducer) =>
+    ([FromBody] Transaction tx, BankContext bank, Producer<int, Debit> debitProducer, Producer<int, Credit> creditProducer) =>
     {
         if (tx.DebitAccountId == tx.CreditAccountId)
         {
@@ -92,14 +92,14 @@ app.MapPost("/transactions",
         return Results.CreatedAtRoute("GetTransactions", new { id = txid }/*, new { debit, credit }*/);
     });
 app.MapGet("/accounts/{id}",
-    (int id, [FromServices] AccountContext bank) =>
+    (int id, [FromServices] BankContext bank) =>
     bank.Accounts.SingleOrDefault(a => a.AccountId == id) switch
     {
         Account account => Results.Ok(account),
         null => Results.NotFound()
     });
 app.MapPost("/accounts",
-    (Account account, [FromServices] AccountContext bank, [FromServices] ILogger<Program> logger) =>
+    (Account account, [FromServices] BankContext bank, [FromServices] ILogger<Program> logger) =>
     {
         try
         {

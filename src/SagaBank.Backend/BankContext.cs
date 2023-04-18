@@ -4,11 +4,11 @@ using SagaBank.Shared;
 
 namespace SagaBank.Backend;
 
-public class AccountContext : DbContext
+public class BankContext : DbContext
 {
     public DbSet<Account> Accounts { get; set; }
 
-    public AccountContext(DbContextOptions<AccountContext> options) : base(options) { }
+    public BankContext(DbContextOptions<BankContext> options) : base(options) { }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
