@@ -2,13 +2,13 @@
 using SagaBank.Shared;
 using SagaBank.Shared.Models;
 
-namespace SagaBank.Debits;
+namespace SagaBank.Credits;
 
-public class DebitContext : DbContext
+public class CreditContext : DbContext
 {
-    public DbSet<Debit> Debits { get; set; }
+    public DbSet<Credit> Credits { get; set; }
 
-    public DebitContext(DbContextOptions<DebitContext> options) : base(options) { }
+    public CreditContext(DbContextOptions<CreditContext> options) : base(options) { }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -17,22 +17,22 @@ public class DebitContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<Debit>()
+        modelBuilder.Entity<Credit>()
             .Property(e => e.TransactionId)
             .HasConversion<UlidToBytesConverter>();
 
-        modelBuilder.Entity<Debit>()
+        modelBuilder.Entity<Credit>()
             .HasKey(e => e.TransactionId);
 
-        modelBuilder.Entity<Debit>()
+        modelBuilder.Entity<Credit>()
             .Property(e => e.Amount)
             .IsRequired();
 
-        modelBuilder.Entity<Debit>()
-            .Property(e => e.DebitAccountId)
+        modelBuilder.Entity<Credit>()
+            .Property(e => e.CreditAccountId)
             .IsRequired();
 
-        modelBuilder.Entity<Debit>()
+        modelBuilder.Entity<Credit>()
             .Property(e => e.Timestamp)
             .IsRequired();
     }

@@ -10,10 +10,10 @@ services:
   project: src/SagaBank.Backend/SagaBank.Backend.csproj
 - name: sagabank-frontend
   project: src/SagaBank.Frontend/SagaBank.Frontend.csproj
-- name: sagabank-fraud
-  project: src/SagaBank.Fraud/SagaBank.Fraud.csproj
-- name: sagabank-validation
-  project: src/SagaBank.Validation/SagaBank.Validation.csproj
+- name: sagabank-debits
+  project: src/SagaBank.Debits/SagaBank.Debits.csproj
+- name: sagabank-credits
+  project: src/SagaBank.Credits/SagaBank.Credits.csproj
 
 - name: sagabank-kafka-zookeeper
   image: confluentinc/cp-zookeeper:7.3.2

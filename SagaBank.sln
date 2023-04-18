@@ -13,13 +13,15 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SagaBank.Fraud", "src\SagaB
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SagaBank.Validation", "src\SagaBank.Validation\SagaBank.Validation.csproj", "{2F1DB872-6470-4AD3-992F-31AC0F8D33D1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SagaBank.Kafka", "src\lib\SagaBank.Kafka\SagaBank.Kafka.csproj", "{A4FADFB4-8357-4E08-9985-68910A6F2C8F}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SagaBank.Kafka", "src\lib\SagaBank.Kafka\SagaBank.Kafka.csproj", "{A4FADFB4-8357-4E08-9985-68910A6F2C8F}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "lib", "lib", "{AD195A81-62A5-422A-ACFA-235B7989DA7B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SagaBank.Shared", "src\lib\SagaBank.Shared\SagaBank.Shared.csproj", "{B878EB24-9E94-49CE-B4C7-2912FC7048E2}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SagaBank.Shared", "src\lib\SagaBank.Shared\SagaBank.Shared.csproj", "{B878EB24-9E94-49CE-B4C7-2912FC7048E2}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SagaBank.Debits", "src\SagaBank.Debits\SagaBank.Debits.csproj", "{68635ADF-2772-4C4F-A8CF-3768609598E5}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SagaBank.Debits", "src\SagaBank.Debits\SagaBank.Debits.csproj", "{68635ADF-2772-4C4F-A8CF-3768609598E5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SagaBank.Credits", "src\SagaBank.Credits\SagaBank.Credits.csproj", "{7456442C-5FCD-431E-88C7-E12C92FD0DFE}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -55,6 +57,10 @@ Global
 		{68635ADF-2772-4C4F-A8CF-3768609598E5}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{68635ADF-2772-4C4F-A8CF-3768609598E5}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{68635ADF-2772-4C4F-A8CF-3768609598E5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7456442C-5FCD-431E-88C7-E12C92FD0DFE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7456442C-5FCD-431E-88C7-E12C92FD0DFE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7456442C-5FCD-431E-88C7-E12C92FD0DFE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7456442C-5FCD-431E-88C7-E12C92FD0DFE}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -68,6 +74,7 @@ Global
 		{AD195A81-62A5-422A-ACFA-235B7989DA7B} = {BBD91AAE-4342-4B84-96E4-5BE467D4FABD}
 		{B878EB24-9E94-49CE-B4C7-2912FC7048E2} = {AD195A81-62A5-422A-ACFA-235B7989DA7B}
 		{68635ADF-2772-4C4F-A8CF-3768609598E5} = {BBD91AAE-4342-4B84-96E4-5BE467D4FABD}
+		{7456442C-5FCD-431E-88C7-E12C92FD0DFE} = {BBD91AAE-4342-4B84-96E4-5BE467D4FABD}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {011032C1-859C-403E-A4D2-0276ED290437}
