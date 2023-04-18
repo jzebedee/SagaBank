@@ -6,6 +6,7 @@ using SagaBank.Backend;
 using SagaBank.Backend.Models;
 using SagaBank.Kafka;
 using SagaBank.Kafka.Extensions;
+using SagaBank.Shared.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,8 +14,9 @@ var dbConnectionString = builder.Configuration.GetConnectionString(nameof(Accoun
 builder.Services.AddDbContext<AccountContext>(options => options.UseSqlite(dbConnectionString));
 
 var kafkaSection = builder.Configuration.GetSection("Kafka");
-builder.Services.AddKafkaProducer(configure => kafkaSection.GetSection(nameof(ProducerConfig)).Bind(configure));
-builder.Services.AddKafkaConsumer(configure => kafkaSection.GetSection(nameof(ConsumerConfig)).Bind(configure));
+builder.Services.AddKafkaProducer<int, Debit>(configure => kafkaSection.GetSection(nameof(ProducerConfig)).Bind(configure));
+builder.Services.AddKafkaProducer<int, Credit>(configure => kafkaSection.GetSection(nameof(ProducerConfig)).Bind(configure));
+//builder.Services.AddKafkaConsumer(configure => kafkaSection.GetSection(nameof(ConsumerConfig)).Bind(configure));
 
 var app = builder.Build();
 
@@ -26,27 +28,68 @@ var app = builder.Build();
 }
 
 app.MapGet("/", () => $"Hello World! It's {DateTimeOffset.Now}");
-app.MapGet("/produce", ([FromServices] Producer producer) => producer.ProduceDummyData(kafkaSection["Topic"]));
-app.MapGet("/consume", ([FromServices] Consumer consumer) => consumer.ConsumeDummyData(kafkaSection["Topic"]));
+//app.MapGet("/produce", ([FromServices] Producer producer) => producer.ProduceDummyData(kafkaSection["Topic"]));
+//app.MapGet("/consume", ([FromServices] Consumer consumer) => consumer.ConsumeDummyData(kafkaSection["Topic"]));
 
 //app.MapGet("/audit/{id}", (int id) =>
 //{
 
 //});
-app.MapPost("/transactions",
-    ([FromBody] Transaction tx) =>
+var topicSection = kafkaSection.GetSection("Topics");
+var debitTopic = topicSection["Debit"];
+var creditTopic = topicSection["Credit"];
+ArgumentException.ThrowIfNullOrEmpty(debitTopic);
+ArgumentException.ThrowIfNullOrEmpty(creditTopic);
+app.MapGet("/transactions/{id}", (Ulid id) =>
     {
-        if(tx.DebitAccountId == tx.CreditAccountId)
+        return Results.NoContent();
+    })
+    .WithName("GetTransactions");
+app.MapPost("/transactions",
+    ([FromBody] Transaction tx, AccountContext bank, Producer<int, Debit> debitProducer, Producer<int, Credit> creditProducer) =>
+    {
+        if (tx.DebitAccountId == tx.CreditAccountId)
         {
             return Results.BadRequest("Debit and credit accounts can not be the same");
         }
 
-        if(tx.Amount <= 0)
+        if (tx.Amount <= 0)
         {
             return Results.BadRequest("Amount must be greater than zero");
         }
 
-        return Results.Ok(tx);
+        if (!bank.Accounts.Any(a => a.AccountId == tx.DebitAccountId))
+        {
+            return Results.BadRequest("Debit account does not exist");
+        }
+
+        if (!bank.Accounts.Any(a => a.AccountId == tx.CreditAccountId))
+        {
+            return Results.BadRequest("Credit account does not exist");
+        }
+
+        var txid = Ulid.NewUlid();
+        var timestamp = DateTimeOffset.Now;
+
+        var debit = new Debit
+        {
+            TransactionId = txid,
+            DebitAccountId = tx.DebitAccountId,
+            Amount = tx.Amount,
+            Timestamp = timestamp
+        };
+        debitProducer.Produce(debitTopic, tx.DebitAccountId, debit);
+
+        var credit = new Credit
+        {
+            TransactionId = txid,
+            CreditAccountId = tx.CreditAccountId,
+            Amount = tx.Amount,
+            Timestamp = timestamp
+        };
+        creditProducer.Produce(creditTopic, tx.CreditAccountId, credit);
+
+        return Results.CreatedAtRoute("GetTransactions", new { id = txid }/*, new { debit, credit }*/);
     });
 app.MapGet("/accounts/{id}",
     (int id, [FromServices] AccountContext bank) =>
