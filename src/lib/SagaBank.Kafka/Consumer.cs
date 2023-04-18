@@ -5,14 +5,14 @@ using System.Collections.Concurrent;
 
 namespace SagaBank.Kafka;
 
-public sealed class Consumer : IDisposable
+public sealed class Consumer<TKey, TValue> : IDisposable
 {
     private readonly IOptions<ConsumerConfig> _options;
     private readonly ILogger _logger;
 
-    private readonly ConcurrentDictionary<string, Lazy<IConsumer<string, string>>> _consumers = new();
+    private readonly ConcurrentDictionary<string, Lazy<IConsumer<TKey, TValue>>> _consumers = new();
 
-    public Consumer(ILogger<Consumer> logger, IOptions<ConsumerConfig> options)
+    public Consumer(ILogger<Consumer<TKey, TValue>> logger, IOptions<ConsumerConfig> options)
     {
         _logger = logger;
         _options = options;
@@ -23,29 +23,36 @@ public sealed class Consumer : IDisposable
         var consumers = _consumers.Values;
         foreach (var consumer in consumers)
         {
-            if (consumer is { IsValueCreated: true, Value: IConsumer<string, string> c })
+            if (consumer is not { IsValueCreated: true, Value: IConsumer<TKey, TValue> c })
             {
-                c.Close();
-                c.Dispose();
+                continue;
             }
+
+            c.Close();
+            c.Dispose();
         }
     }
 
-    public void ConsumeDummyData(string topic)
+    public Message<TKey, TValue>? Consume(string topic, CancellationToken cancellationToken = default)
     {
         var consumer = _consumers.GetOrAdd(topic, t => new(() =>
         {
-            var c = new ConsumerBuilder<string, string>(_options.Value).Build();
+            var builder = new ConsumerBuilder<TKey, TValue>(_options.Value);
+            builder.SetKeyDeserializer(KafkaMemoryPackDeserializer<TKey>.Instance);
+            builder.SetValueDeserializer(KafkaMemoryPackDeserializer<TValue>.Instance);
+
+            var c = builder.Build();
             c.Subscribe(t);
             return c;
         })).Value;
 
-        if (consumer.Consume(TimeSpan.FromSeconds(10)) is ConsumeResult<string, string> cr)
+        if (consumer.Consume(cancellationToken) is ConsumeResult<TKey, TValue> cr)
         {
             _logger.LogInformation("Consumed event from topic {topic} with key {key,-10} and value {value}", topic, cr.Message.Key, cr.Message.Value);
-            return;
+            return cr.Message;
         }
 
         _logger.LogWarning("Failed to consume any event");
+        return null;
     }
 }

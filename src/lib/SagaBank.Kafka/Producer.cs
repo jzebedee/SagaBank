@@ -4,58 +4,55 @@ using Microsoft.Extensions.Options;
 
 namespace SagaBank.Kafka;
 
-public sealed class Producer : IDisposable
+public sealed class Producer<TKey, TValue> : IDisposable
 {
     private readonly IOptions<ProducerConfig> _options;
     private readonly ILogger _logger;
 
-    private readonly Lazy<IProducer<string, string>> _producer;
+    private readonly Lazy<IProducer<TKey, TValue>> _producer;
 
-    public Producer(ILogger<Producer> logger, IOptions<ProducerConfig> options)
+    public Producer(ILogger<Producer<TKey, TValue>> logger, IOptions<ProducerConfig> options)
     {
         _logger = logger;
         _options = options;
-        _producer = new(() => new ProducerBuilder<string, string>(_options.Value).Build());
+        _producer = new(() =>
+        {
+            var builder = new ProducerBuilder<TKey, TValue>(_options.Value);
+            builder.SetKeySerializer(KafkaMemoryPackSerializer<TKey>.Instance);
+            builder.SetValueSerializer(KafkaMemoryPackSerializer<TValue>.Instance);
+            return builder.Build();
+        });
     }
 
     public void Dispose()
     {
-        if(_producer is { IsValueCreated: true, Value: IProducer<string, string> producer })
+        if (_producer is not { IsValueCreated: true, Value: IProducer<TKey, TValue> producer })
         {
-            producer.Dispose();
+            return;
         }
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var token = cts.Token;
+        producer.Flush(token);
+        producer.Dispose();
+
+        token.ThrowIfCancellationRequested();
     }
 
-    public void ProduceDummyData(string topic)
+    public void Produce(string topic, TKey key, TValue value)
     {
-        string[] users = { "eabara", "jsmith", "sgarcia", "jbernard", "htanaka", "awalther" };
-        string[] items = { "book", "alarm clock", "t-shirts", "gift card", "batteries" };
-
         var producer = _producer.Value;
-        var numProduced = 0;
-        var rnd = Random.Shared;
 
-        const int numMessages = 10;
-        for (int i = 0; i < numMessages; ++i)
-        {
-            var user = users[rnd.Next(users.Length)];
-            var item = items[rnd.Next(items.Length)];
-
-            producer.Produce(topic, new Message<string, string> { Key = user, Value = item },
-                (deliveryReport) =>
+        producer.Produce(topic, new Message<TKey, TValue> { Key = key, Value = value },
+            (deliveryReport) =>
+            {
+                if (deliveryReport is { Error.Code: ErrorCode.NoError })
                 {
-                    if (deliveryReport is { Error.Code: ErrorCode.NoError })
-                    {
-                        numProduced++;
-                        _logger.LogInformation("Produced event to topic {topic}: key = {user,-10} value = {item}", topic, user, item);
-                        return;
-                    }
+                    _logger.LogInformation("Produced event to topic {topic}: key = {key,-10} value = {value}", topic, key, value);
+                    return;
+                }
 
-                    _logger.LogWarning("Failed to deliver message: {reason}", deliveryReport.Error.Reason);
-                });
-        }
-
-        producer.Flush(TimeSpan.FromSeconds(10));
-        _logger.LogInformation("{numProduced} messages were produced to topic {topic}", numProduced, topic);
+                _logger.LogWarning("Failed to deliver message: {reason}", deliveryReport.Error.Reason);
+            });
     }
 }
