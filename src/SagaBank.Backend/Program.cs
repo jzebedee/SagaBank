@@ -46,7 +46,7 @@ app.MapGet("/transactions/{id}", (Ulid id) =>
     })
     .WithName("GetTransactions");
 app.MapPost("/transactions",
-    ([FromBody] Transaction tx, BankContext bank, Producer<int, Debit> debitProducer, Producer<int, Credit> creditProducer) =>
+    ([FromBody] TransactionRequest tx, BankContext bank, Producer<int, Debit> debitProducer, Producer<int, Credit> creditProducer) =>
     {
         if (tx.DebitAccountId == tx.CreditAccountId)
         {

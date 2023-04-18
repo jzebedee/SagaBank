@@ -3,6 +3,7 @@
 public class Account
 {
     public int AccountId { get; set; }
-    public decimal Balance { get; set; }
-    public bool Frozen { get; set; }
+
+    public ICollection<Transaction> Debits { get; set; }
+    public ICollection<Transaction> Credits { get; set; }
 }
