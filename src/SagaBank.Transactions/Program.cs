@@ -7,17 +7,14 @@ IHost host = Host.CreateDefaultBuilder(args)
     .ConfigureServices((context, services) =>
     {
         var kafkaSection = context.Configuration.GetSection("Kafka");
-        //services.AddKafkaProducer(configure => kafkaSection.GetSection(nameof(ProducerConfig)).Bind(configure));
+        services.AddKafkaProducer<Ulid, ITransactionSaga>(configure => kafkaSection.GetSection(nameof(ProducerConfig)).Bind(configure));
         services.AddKafkaConsumer<Ulid, ITransactionSaga>(configure => kafkaSection.GetSection(nameof(ConsumerConfig)).Bind(configure));
 
-        //ConsumerConfig x;
-        //x.commit
-
-        services.Configure<DebitWorkerOptions>(opt =>
+        services.Configure<TransactionWorkerOptions>(opt =>
         {
             opt.ConsumeTopic = kafkaSection["Topic"];
         });
-        services.AddHostedService<DebitWorker>();
+        services.AddHostedService<TransactionWorker>();
     })
     .Build();
 

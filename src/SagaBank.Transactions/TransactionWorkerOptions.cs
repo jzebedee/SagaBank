@@ -1,6 +1,6 @@
 ﻿namespace SagaBank.Debits;
 
-public class DebitWorkerOptions
+public class TransactionWorkerOptions
 {
     public string ConsumeTopic { get; set; }
     public string ProduceTopic { get; set; }

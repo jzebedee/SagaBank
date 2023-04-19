@@ -6,14 +6,14 @@ using SagaBank.Shared.Models;
 
 namespace SagaBank.Debits;
 
-public class DebitWorker : BackgroundService
+public class TransactionWorker : BackgroundService
 {
     private readonly IServiceProvider _provider;
-    private readonly ILogger<DebitWorker> _logger;
-    private readonly IOptions<DebitWorkerOptions> _options;
+    private readonly ILogger<TransactionWorker> _logger;
+    private readonly IOptions<TransactionWorkerOptions> _options;
     private readonly Consumer<Ulid, ITransactionSaga> _debitConsumer;
 
-    public DebitWorker(IServiceProvider provider, ILogger<DebitWorker> logger, IOptions<DebitWorkerOptions> options, Consumer<Ulid, ITransactionSaga> debitConsumer)
+    public TransactionWorker(IServiceProvider provider, ILogger<TransactionWorker> logger, IOptions<TransactionWorkerOptions> options, Consumer<Ulid, ITransactionSaga> debitConsumer)
     {
         _provider = provider;
         _logger = logger;
@@ -23,12 +23,12 @@ public class DebitWorker : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("{worker} running at: {time}", nameof(DebitWorker), DateTimeOffset.Now);
+        _logger.LogInformation("{worker} running at: {time}", nameof(TransactionWorker), DateTimeOffset.Now);
         while (!stoppingToken.IsCancellationRequested)
         {
             Consume();
         }
-        _logger.LogInformation("{worker} stopping at: {time}", nameof(DebitWorker), DateTimeOffset.Now);
+        _logger.LogInformation("{worker} stopping at: {time}", nameof(TransactionWorker), DateTimeOffset.Now);
     }
 
     private void Consume()
