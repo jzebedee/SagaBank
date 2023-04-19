@@ -1,5 +1,6 @@
 using Confluent.Kafka;
 using Microsoft.Extensions.Options;
+using SagaBank.Banking;
 using SagaBank.Kafka;
 using SagaBank.Shared.Models;
 
@@ -10,9 +11,9 @@ public class DebitWorker : BackgroundService
     private readonly IServiceProvider _provider;
     private readonly ILogger<DebitWorker> _logger;
     private readonly IOptions<DebitWorkerOptions> _options;
-    private readonly Consumer<int, Debit> _debitConsumer;
+    private readonly Consumer<Ulid, ITransactionSaga> _debitConsumer;
 
-    public DebitWorker(IServiceProvider provider, ILogger<DebitWorker> logger, IOptions<DebitWorkerOptions> options, Consumer<int, Debit> debitConsumer)
+    public DebitWorker(IServiceProvider provider, ILogger<DebitWorker> logger, IOptions<DebitWorkerOptions> options, Consumer<Ulid, ITransactionSaga> debitConsumer)
     {
         _provider = provider;
         _logger = logger;
@@ -22,11 +23,12 @@ public class DebitWorker : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        _logger.LogInformation("{worker} running at: {time}", nameof(DebitWorker), DateTimeOffset.Now);
         while (!stoppingToken.IsCancellationRequested)
         {
-            _logger.LogInformation("{worker} running at: {time}", nameof(DebitWorker), DateTimeOffset.Now);
             Consume();
         }
+        _logger.LogInformation("{worker} stopping at: {time}", nameof(DebitWorker), DateTimeOffset.Now);
     }
 
     private void Consume()
@@ -35,29 +37,27 @@ public class DebitWorker : BackgroundService
         var consumeTopic = _options.Value.ConsumeTopic;
         try
         {
-            switch (consumer.Consume(consumeTopic))
+            if(consumer.Consume(consumeTopic) is not Message<Ulid, ITransactionSaga> message)
             {
-                case Message<int, Debit> message:
-                    _logger.LogInformation("Received debit {debit} on topic {topic}", message.Value, consumeTopic);
-                    HandleDebit(message.Value);
+                _logger.LogWarning("Failed to read transaction saga message from {topic}", consumeTopic);
+                return;
+            }
+
+            switch (message.Value)
+            {
+                case TransactionStarting txStart:
+                    _logger.LogInformation("Transaction starting {tx} on topic {topic}", txStart, consumeTopic);
                     break;
                 default:
-                    _logger.LogWarning("Failed to read debit message from {topic}", consumeTopic);
+                    _logger.LogWarning("Unknown transaction saga type {tx} from {topic}", message.Value, consumeTopic);
                     break;
             }
+
+            consumer.Commit(consumeTopic);
         }
         catch (ConsumeException ex)
         {
             _logger.LogError(ex, "Failed to consume on topic {topic}", consumeTopic);
         }
-    }
-
-    private void HandleDebit(Debit debit)
-    {
-        using var scope = _provider.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<DebitContext>();
-
-        context.Debits.Add(debit);
-        context.SaveChanges();
     }
 }

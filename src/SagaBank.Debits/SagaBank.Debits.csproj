@@ -19,6 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\lib\SagaBank.Banking\SagaBank.Banking.csproj" />
     <ProjectReference Include="..\lib\SagaBank.Kafka\SagaBank.Kafka.csproj" />
     <ProjectReference Include="..\lib\SagaBank.Shared\SagaBank.Shared.csproj" />
   </ItemGroup>
