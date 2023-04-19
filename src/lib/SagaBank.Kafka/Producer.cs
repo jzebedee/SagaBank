@@ -39,20 +39,20 @@ public sealed class Producer<TKey, TValue> : IDisposable
         token.ThrowIfCancellationRequested();
     }
 
-    public void Produce(string topic, TKey key, TValue value)
+    public async Task<DeliveryResult<TKey, TValue>> ProduceAsync(string topic, TKey key, TValue value, CancellationToken cancellationToken = default)
     {
         var producer = _producer.Value;
 
-        producer.Produce(topic, new Message<TKey, TValue> { Key = key, Value = value },
-            (deliveryReport) =>
-            {
-                if (deliveryReport is { Error.Code: ErrorCode.NoError })
-                {
-                    _logger.LogInformation("Produced event to topic {topic}: key = {key,-10} value = {value}", topic, key, value);
-                    return;
-                }
+        var deliveryResult = await producer.ProduceAsync(topic, new Message<TKey, TValue> { Key = key, Value = value }, cancellationToken);
+        if (deliveryResult is { Status: PersistenceStatus.Persisted })
+        {
+            _logger.LogInformation("Produced to topic {topic}: (key:{key,-10},value:{value})", topic, key, value);
+        }
+        else
+        {
+            _logger.LogWarning("Failed to produce to topic {topic}: (key:{key,-10},value:{value}), current status: {status}", topic, key, value, deliveryResult.Status);
+        }
 
-                _logger.LogWarning("Failed to deliver message: {reason}", deliveryReport.Error.Reason);
-            });
+        return deliveryResult;
     }
 }
