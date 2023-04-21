@@ -4,9 +4,9 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using SagaBank.Backend;
 using SagaBank.Backend.Models;
+using SagaBank.Banking;
 using SagaBank.Kafka;
 using SagaBank.Kafka.Extensions;
-using SagaBank.Shared.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,8 +14,9 @@ var dbConnectionString = builder.Configuration.GetConnectionString(nameof(BankCo
 builder.Services.AddDbContext<BankContext>(options => options.UseSqlite(dbConnectionString));
 
 var kafkaSection = builder.Configuration.GetSection("Kafka");
-builder.Services.AddKafkaProducer<int, Debit>(configure => kafkaSection.GetSection(nameof(ProducerConfig)).Bind(configure));
-builder.Services.AddKafkaProducer<int, Credit>(configure => kafkaSection.GetSection(nameof(ProducerConfig)).Bind(configure));
+builder.Services.AddKafkaProducer<Ulid, ITransactionSaga>(configure => kafkaSection.GetSection(nameof(ProducerConfig)).Bind(configure));
+//builder.Services.AddKafkaProducer<string, string>(configure => kafkaSection.GetSection(nameof(ProducerConfig)).Bind(configure));
+//builder.Services.AddKafkaProducer<int, Credit>(configure => kafkaSection.GetSection(nameof(ProducerConfig)).Bind(configure));
 //builder.Services.AddKafkaConsumer(configure => kafkaSection.GetSection(nameof(ConsumerConfig)).Bind(configure));
 
 var app = builder.Build();
@@ -36,60 +37,44 @@ app.MapGet("/", () => $"Hello World! It's {DateTimeOffset.Now}");
 
 //});
 var topicSection = kafkaSection.GetSection("Topics");
-var debitTopic = topicSection["Debit"];
-var creditTopic = topicSection["Credit"];
-ArgumentException.ThrowIfNullOrEmpty(debitTopic);
-ArgumentException.ThrowIfNullOrEmpty(creditTopic);
+var txTopic = topicSection["Transaction"];
+ArgumentException.ThrowIfNullOrEmpty(txTopic);
 app.MapGet("/transactions/{id}", (Ulid id) =>
     {
         return Results.NoContent();
     })
     .WithName("GetTransactions");
 app.MapPost("/transactions",
-    ([FromBody] TransactionRequest tx, BankContext bank, Producer<int, Debit> debitProducer, Producer<int, Credit> creditProducer) =>
+    async ([FromBody] TransactionRequest tx, BankContext bank, Producer<Ulid, ITransactionSaga> txProducer) =>
     {
-        if (tx.DebitAccountId == tx.CreditAccountId)
-        {
-            return Results.BadRequest("Debit and credit accounts can not be the same");
-        }
+        //if (tx.DebitAccountId == tx.CreditAccountId)
+        //{
+        //    return Results.BadRequest("Debit and credit accounts can not be the same");
+        //}
 
-        if (tx.Amount <= 0)
-        {
-            return Results.BadRequest("Amount must be greater than zero");
-        }
+        //if (tx.Amount <= 0)
+        //{
+        //    return Results.BadRequest("Amount must be greater than zero");
+        //}
 
-        if (!bank.Accounts.Any(a => a.AccountId == tx.DebitAccountId))
-        {
-            return Results.BadRequest("Debit account does not exist");
-        }
+        //if (!bank.Accounts.Any(a => a.AccountId == tx.DebitAccountId))
+        //{
+        //    return Results.BadRequest("Debit account does not exist");
+        //}
 
-        if (!bank.Accounts.Any(a => a.AccountId == tx.CreditAccountId))
-        {
-            return Results.BadRequest("Credit account does not exist");
-        }
+        //if (!bank.Accounts.Any(a => a.AccountId == tx.CreditAccountId))
+        //{
+        //    return Results.BadRequest("Credit account does not exist");
+        //}
 
         var txid = Ulid.NewUlid();
-        var timestamp = DateTimeOffset.Now;
-
-        var debit = new Debit
+        var result = await txProducer.ProduceAsync(txTopic, txid, new TransactionStarting(txid, tx.Amount, tx.DebitAccountId, tx.CreditAccountId));
+        return result.Status switch
         {
-            TransactionId = txid,
-            DebitAccountId = tx.DebitAccountId,
-            Amount = tx.Amount,
-            Timestamp = timestamp
+            PersistenceStatus.Persisted => Results.CreatedAtRoute("GetTransactions", new { id = txid }/*, new { debit, credit }*/),
+            PersistenceStatus.PossiblyPersisted => Results.AcceptedAtRoute("GetTransactions", new { id = txid }),
+            _ => Results.UnprocessableEntity()
         };
-        debitProducer.Produce(debitTopic, tx.DebitAccountId, debit);
-
-        var credit = new Credit
-        {
-            TransactionId = txid,
-            CreditAccountId = tx.CreditAccountId,
-            Amount = tx.Amount,
-            Timestamp = timestamp
-        };
-        creditProducer.Produce(creditTopic, tx.CreditAccountId, credit);
-
-        return Results.CreatedAtRoute("GetTransactions", new { id = txid }/*, new { debit, credit }*/);
     });
 app.MapGet("/accounts/{id}",
     (int id, [FromServices] BankContext bank) =>
