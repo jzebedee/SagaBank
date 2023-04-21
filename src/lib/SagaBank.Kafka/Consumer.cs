@@ -28,8 +28,15 @@ public sealed class Consumer<TKey, TValue> : IDisposable
                 continue;
             }
 
+            try
+            {
             c.Close();
             c.Dispose();
+        }
+            catch (ObjectDisposedException)
+            {
+                //swallow
+    }
         }
     }
 
