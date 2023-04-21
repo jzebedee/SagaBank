@@ -12,7 +12,13 @@ IHost host = Host.CreateDefaultBuilder(args)
 
         services.Configure<TransactionWorkerOptions>(opt =>
         {
-            opt.ConsumeTopic = kafkaSection["Topic"];
+            //TODO: null check / bind from config
+            opt.ConsumeTopic = kafkaSection["Topic"]!;
+            opt.ProduceTopic = kafkaSection["Topic"]!;
+            opt.TransactionTimeout = TimeSpan.FromSeconds(30);
+            opt.ConsumeTimeout = TimeSpan.FromSeconds(1);
+            opt.ThrottleTime = TimeSpan.FromMilliseconds(250);
+            opt.CommitPeriod = TimeSpan.FromSeconds(10);
         });
         services.AddHostedService<TransactionWorker>();
     })
