@@ -53,8 +53,8 @@ public sealed class Consumer<TKey, TValue> : IDisposable
         return null;
     }
 
-    private IConsumer<TKey,TValue> GetConsumerForTopic(string topic)
-        => _consumers.GetOrAdd(topic, t => new(() => CreateConsumer(t))).Value;
+    public IConsumer<TKey, TValue> GetConsumerForTopic(string topic, Action<ConsumerBuilder<TKey, TValue>>? configureAction = null)
+        => _consumers.GetOrAdd(topic, t => new(() => CreateConsumer(t, configureAction))).Value;
 
     private IConsumer<TKey, TValue> CreateConsumer(string topic, Action<ConsumerBuilder<TKey, TValue>>? configureAction)
     {
