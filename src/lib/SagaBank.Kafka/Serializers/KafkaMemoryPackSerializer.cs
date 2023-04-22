@@ -1,6 +1,6 @@
 ﻿using Confluent.Kafka;
 
-namespace SagaBank.Kafka;
+namespace SagaBank.Kafka.Serializers;
 
 public sealed class KafkaMemoryPackSerializer<T> : ISerializer<T>
 {
@@ -8,5 +8,5 @@ public sealed class KafkaMemoryPackSerializer<T> : ISerializer<T>
     public static KafkaMemoryPackSerializer<T> Instance => _instance.Value;
 
     public byte[] Serialize(T data, SerializationContext context)
-        => MemoryPack.MemoryPackSerializer.Serialize<T>(data);
+        => MemoryPack.MemoryPackSerializer.Serialize(data);
 }

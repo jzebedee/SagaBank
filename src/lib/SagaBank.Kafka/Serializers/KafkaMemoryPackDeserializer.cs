@@ -1,6 +1,6 @@
 ﻿using Confluent.Kafka;
 
-namespace SagaBank.Kafka;
+namespace SagaBank.Kafka.Serializers;
 
 public sealed class KafkaMemoryPackDeserializer<T> : IDeserializer<T>
 {
