@@ -1,4 +1,5 @@
 ﻿using MemoryPack;
+using System.Text.Json.Serialization;
 
 namespace SagaBank.Banking;
 
@@ -8,6 +9,13 @@ namespace SagaBank.Banking;
 [MemoryPackUnion(2, typeof(TransactionUpdateBalanceAvailable))]
 [MemoryPackUnion(3, typeof(TransactionUpdateBalanceAvailableCompensation))]
 [MemoryPackUnion(4, typeof(TransactionUpdateBalanceAvailableFailed))]
+[JsonPolymorphic(UnknownDerivedTypeHandling = JsonUnknownDerivedTypeHandling.FallBackToNearestAncestor)]
+[JsonDerivedType(typeof(ITransactionSaga), "base")]
+[JsonDerivedType(typeof(TransactionStarting), "starting")]
+[JsonDerivedType(typeof(TransactionStartFailed), "start-failed")]
+[JsonDerivedType(typeof(TransactionUpdateBalanceAvailable), "update-bal-avail")]
+[JsonDerivedType(typeof(TransactionUpdateBalanceAvailableCompensation), "update-bal-avail-compensating")]
+[JsonDerivedType(typeof(TransactionUpdateBalanceAvailableFailed), "update-bal-avail-failed")]
 public partial interface ITransactionSaga { }
 
 [MemoryPackable]
