@@ -49,7 +49,7 @@ public class TransactionWorker : BackgroundService
             builder.SetPartitionsRevokedHandler((c, partitions) =>
             {
                 var remaining = c.Assignment.Where(tp => !partitions.Where(x => x.TopicPartition == tp).Any());
-                logger.LogDebug("Worker {worker} consumer group partitions revoked: [{revoked}], remaining: [{remaining}]",
+                logger.LogDebug("{worker} consumer group partitions revoked: [{revoked}], remaining: [{remaining}]",
                     nameof(TransactionWorker),
                     string.Join(',', partitions.Select(p => p.Partition.Value)),
                     string.Join(',', remaining.Select(p => p.Partition.Value))
@@ -61,7 +61,7 @@ public class TransactionWorker : BackgroundService
             {
                 // Ownership of the partitions has been involuntarily lost and
                 // are now likely already owned by another consumer.
-                logger.LogDebug("Worker {worker} consumer group partitions lost: [{lost}]",
+                logger.LogDebug("{worker} consumer group partitions lost: [{lost}]",
                     nameof(TransactionWorker),
                     string.Join(',', partitions.Select(p => p.Partition.Value))
                 );
@@ -70,7 +70,7 @@ public class TransactionWorker : BackgroundService
             })
             .SetPartitionsAssignedHandler((c, partitions) =>
             {
-                logger.LogDebug("Worker {worker} consumer group additional partitions assigned: [{assigned}], all: [{all}]",
+                logger.LogDebug("{worker} consumer group additional partitions assigned: [{assigned}], all: [{all}]",
                     nameof(TransactionWorker),
                     string.Join(',', partitions.Select(p => p.Partition.Value)),
                     string.Join(',', c.Assignment.Concat(partitions).Select(p => p.Partition.Value))
@@ -88,27 +88,25 @@ public class TransactionWorker : BackgroundService
     {
         try
         {
-            _logger.LogInformation("{worker} running at {time}", nameof(TransactionWorker), DateTimeOffset.Now);
-
             var consumer = _consumer;
             var consumeTopic = _options.Value.ConsumeTopic;
 
             var producer = _producer;
             var produceTopic = _options.Value.ProduceTopic;
 
+            _logger.LogInformation("{worker} running at {time}",
+                nameof(TransactionWorker),
+                DateTimeOffset.Now
+            );
+
             producer.TransactionReset(_options.Value.TransactionTimeout);
 
-            using var ctsConsume = new CancellationTokenSource();//CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
-            using var ctsCommit = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
-            ctsCommit.CancelAfter(_options.Value.CommitPeriod);
-
+            using var commitTimer = new PeriodicTimer(_options.Value.CommitPeriod);
             while (!stoppingToken.IsCancellationRequested)
             {
-                ctsConsume.CancelAfter(_options.Value.ConsumeTimeout);
-
                 try
                 {
-                    ProcessTransactions(ctsConsume.Token);
+                    ProcessTransactions();
                 }
                 catch (Exception e)
                 {
@@ -124,21 +122,10 @@ public class TransactionWorker : BackgroundService
                     break;
                 }
 
-                if (ctsCommit.IsCancellationRequested)
+                if (await commitTimer.WaitForNextTickAsync(stoppingToken))
                 {
+                    _logger.LogInformation("{worker} scheduled to commit Kafka transaction(s)", nameof(TransactionWorker));
                     producer.TransactionCommit(consumer.GetConsumerForTopic(consumeTopic), _options.Value.TransactionTimeout);
-                    _logger.LogInformation("{worker} committed Kafka transaction(s)", nameof(TransactionWorker));
-                    if (!ctsCommit.TryReset())
-                    {
-                        _logger.LogDebug("{worker} processing stopped due to commit CTS reset failure", nameof(TransactionWorker));
-                        break;
-                    }
-                }
-
-                if (!ctsConsume.TryReset())
-                {
-                    _logger.LogDebug("{worker} processing stopped due to consume CTS reset failure", nameof(TransactionWorker));
-                    break;
                 }
             }
         }
@@ -149,7 +136,7 @@ public class TransactionWorker : BackgroundService
         }
     }
 
-    private void ProcessTransactions(CancellationToken cancellationToken)
+    private void ProcessTransactions()
     {
         var consumer = _consumer;
         var consumeTopic = _options.Value.ConsumeTopic;
@@ -160,9 +147,9 @@ public class TransactionWorker : BackgroundService
         try
         {
             // Do not block on Consume indefinitely to avoid the possibility of a transaction timeout.
-            if (consumer.Consume(consumeTopic, cancellationToken) is not Message<Ulid, ITransactionSaga> message)
+            if (consumer.Consume(consumeTopic, _options.Value.ConsumeTimeout) is not Message<Ulid, ITransactionSaga> message)
             {
-                _logger.LogWarning("Failed to read transaction saga message from {topic}", consumeTopic);
+                _logger.LogWarning("Failed to read transaction saga message from {topic} within {timeout}", consumeTopic, _options.Value.ConsumeTimeout);
                 return;
             }
 
