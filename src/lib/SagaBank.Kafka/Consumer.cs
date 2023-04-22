@@ -1,6 +1,7 @@
 ﻿using Confluent.Kafka;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using SagaBank.Kafka.Serializers;
 using System.Collections.Concurrent;
 
 namespace SagaBank.Kafka;
@@ -30,20 +31,20 @@ public sealed class Consumer<TKey, TValue> : IDisposable
 
             try
             {
-            c.Close();
-            c.Dispose();
-        }
+                c.Close();
+                c.Dispose();
+            }
             catch (ObjectDisposedException)
             {
                 //swallow
-    }
+            }
         }
     }
 
-    public Message<TKey, TValue>? Consume(string topic, CancellationToken cancellationToken = default)
+    public Message<TKey, TValue>? Consume(string topic, TimeSpan timeout)
     {
         var consumer = GetConsumerForTopic(topic);
-        if (consumer.Consume(cancellationToken) is ConsumeResult<TKey, TValue> cr)
+        if (consumer.Consume(timeout) is ConsumeResult<TKey, TValue> cr)
         {
             _logger.LogInformation("Consumed event from topic {topic} with key {key,-10} and value {value}", topic, cr.Message.Key, cr.Message.Value);
             return cr.Message;
