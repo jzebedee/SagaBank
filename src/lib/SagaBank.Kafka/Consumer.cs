@@ -59,8 +59,10 @@ public sealed class Consumer<TKey, TValue> : IDisposable
     private IConsumer<TKey, TValue> CreateConsumer(string topic, Action<ConsumerBuilder<TKey, TValue>>? configureAction)
     {
         var builder = new ConsumerBuilder<TKey, TValue>(_options.Value);
-        builder.SetKeyDeserializer(KafkaMemoryPackDeserializer<TKey>.Instance);
-        builder.SetValueDeserializer(KafkaMemoryPackDeserializer<TValue>.Instance);
+        //builder.SetKeyDeserializer(KafkaMemoryPackDeserializer<TKey>.Instance);
+        //builder.SetValueDeserializer(KafkaMemoryPackDeserializer<TValue>.Instance);
+        builder.SetKeyDeserializer(KafkaJsonDeserializer<TKey>.Instance);
+        builder.SetValueDeserializer(KafkaJsonDeserializer<TValue>.Instance);
         configureAction?.Invoke(builder);
 
         var c = builder.Build();

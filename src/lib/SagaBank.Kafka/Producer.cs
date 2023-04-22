@@ -18,8 +18,10 @@ public sealed class Producer<TKey, TValue> : IDisposable
         _producer = new(() =>
         {
             var builder = new ProducerBuilder<TKey, TValue>(_options.Value);
-            builder.SetKeySerializer(KafkaMemoryPackSerializer<TKey>.Instance);
-            builder.SetValueSerializer(KafkaMemoryPackSerializer<TValue>.Instance);
+            //builder.SetKeySerializer(KafkaMemoryPackSerializer<TKey>.Instance);
+            //builder.SetValueSerializer(KafkaMemoryPackSerializer<TValue>.Instance);
+            builder.SetKeySerializer(KafkaJsonSerializer<TKey>.Instance);
+            builder.SetValueSerializer(KafkaJsonSerializer<TValue>.Instance);
             return builder.Build();
         });
     }
