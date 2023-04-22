@@ -28,6 +28,7 @@ IHost host = Host.CreateDefaultBuilder(args)
             services.PostConfigure<ProducerConfig>(configure =>
             {
                 configure.ClientId = $"{appInstance}_{configure.ClientId}";
+                configure.TransactionalId = $"{appInstance}_{configure.TransactionalId}";
             });
             services.PostConfigure<ConsumerConfig>(configure =>
             {
