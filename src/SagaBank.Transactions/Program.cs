@@ -20,6 +20,21 @@ IHost host = Host.CreateDefaultBuilder(args)
             opt.ThrottleTime = TimeSpan.FromMilliseconds(250);
             opt.CommitPeriod = TimeSpan.FromSeconds(10);
         });
+
+        //Tye-only
+        {
+            var appInstance = Environment.GetEnvironmentVariable("APP_INSTANCE");
+
+            services.PostConfigure<ProducerConfig>(configure =>
+            {
+                configure.ClientId = $"{appInstance}_{configure.ClientId}";
+            });
+            services.PostConfigure<ConsumerConfig>(configure =>
+            {
+                configure.ClientId = $"{appInstance}_{configure.ClientId}";
+            });
+        }
+
         services.AddHostedService<TransactionWorker>();
     })
     .Build();
