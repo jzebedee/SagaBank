@@ -6,18 +6,23 @@ namespace SagaBank.Shared;
 public class SqliteWalDbConnectionInterceptor : DbConnectionInterceptor
 {
     private const string WalPragma = "PRAGMA journal_mode = 'wal';";
+    private const string SyncNormalPragma = "PRAGMA synchronous = 'normal';";
 
     public override void ConnectionOpened(DbConnection connection, ConnectionEndEventData eventData)
     {
         using var cmd = connection.CreateCommand();
         cmd.CommandText = WalPragma;
         cmd.ExecuteNonQuery();
+        cmd.CommandText = SyncNormalPragma;
+        cmd.ExecuteNonQuery();
     }
 
-    public override Task ConnectionOpenedAsync(DbConnection connection, ConnectionEndEventData eventData, CancellationToken cancellationToken = default)
+    public override async Task ConnectionOpenedAsync(DbConnection connection, ConnectionEndEventData eventData, CancellationToken cancellationToken = default)
     {
         using var cmd = connection.CreateCommand();
         cmd.CommandText = WalPragma;
-        return cmd.ExecuteNonQueryAsync(cancellationToken);
+        await cmd.ExecuteNonQueryAsync(cancellationToken);
+        cmd.CommandText = SyncNormalPragma;
+        await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
 }
