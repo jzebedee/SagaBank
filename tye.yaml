@@ -12,8 +12,9 @@ services:
   project: src/SagaBank.Frontend/SagaBank.Frontend.csproj
 - name: sagabank-transactions
   project: src/SagaBank.Transactions/SagaBank.Transactions.csproj
-- name: sagabank-credits
-  project: src/SagaBank.Credits/SagaBank.Credits.csproj
+  replicas: 6
+#- name: sagabank-credits
+#  project: src/SagaBank.Credits/SagaBank.Credits.csproj
 
 - name: sagabank-kafka-zookeeper
   image: confluentinc/cp-zookeeper:7.3.2
