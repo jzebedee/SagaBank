@@ -8,10 +8,7 @@ public sealed class KafkaJsonSerializer<T> : ISerializer<T>
     private static readonly Lazy<KafkaJsonSerializer<T>> _instance = new();
     public static KafkaJsonSerializer<T> Instance => _instance.Value;
 
-    private static JsonSerializerOptions KeyOptions = new()
-    {
-        IncludeFields = true,
-    };
+    private static JsonSerializerOptions? KeyOptions = null;
 
     public byte[] Serialize(T data, SerializationContext context)
     {
