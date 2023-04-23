@@ -14,10 +14,22 @@ var dbConnectionString = builder.Configuration.GetConnectionString(nameof(BankCo
 builder.Services.AddDbContext<BankContext>(options => options.UseSqlite(dbConnectionString).EnableSensitiveDataLogging());
 
 var kafkaSection = builder.Configuration.GetSection("Kafka");
+var topicSection = kafkaSection.GetSection("Topics");
+var txTopic = topicSection["Transaction"];
+ArgumentException.ThrowIfNullOrEmpty(txTopic);
+
 builder.Services.AddKafkaProducer<TransactionKey, ITransactionSaga>(configure => kafkaSection.GetSection(nameof(ProducerConfig)).Bind(configure));
 //builder.Services.AddKafkaProducer<string, string>(configure => kafkaSection.GetSection(nameof(ProducerConfig)).Bind(configure));
 //builder.Services.AddKafkaProducer<int, Credit>(configure => kafkaSection.GetSection(nameof(ProducerConfig)).Bind(configure));
 //builder.Services.AddKafkaConsumer(configure => kafkaSection.GetSection(nameof(ConsumerConfig)).Bind(configure));
+
+builder.Services.Configure<RandomLoanGeneratorOptions>(configure =>
+{
+    configure.ProviderAccountId = 0;
+    configure.ProduceTopic = txTopic;
+    configure.ProduceDelay = TimeSpan.FromSeconds(1);
+});
+builder.Services.AddHostedService<RandomLoanGenerator>();
 
 var app = builder.Build();
 
@@ -44,9 +56,6 @@ app.MapGet("/", () => $"Hello World! It's {DateTimeOffset.Now}");
 //{
 
 //});
-var topicSection = kafkaSection.GetSection("Topics");
-var txTopic = topicSection["Transaction"];
-ArgumentException.ThrowIfNullOrEmpty(txTopic);
 app.MapGet("/transactions/{id}", (Ulid id) =>
     {
         return Results.NoContent();
