@@ -1,6 +1,7 @@
 ﻿using Confluent.Kafka;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using SagaBank.Kafka.Serializers;
 
 namespace SagaBank.Kafka;
 
