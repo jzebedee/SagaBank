@@ -7,8 +7,8 @@ IHost host = Host.CreateDefaultBuilder(args)
     .ConfigureServices((context, services) =>
     {
         var kafkaSection = context.Configuration.GetSection("Kafka");
-        services.AddKafkaProducer<Ulid, ITransactionSaga>(configure => kafkaSection.GetSection(nameof(ProducerConfig)).Bind(configure));
-        services.AddKafkaConsumer<Ulid, ITransactionSaga>(configure => kafkaSection.GetSection(nameof(ConsumerConfig)).Bind(configure));
+        services.AddKafkaProducer<TransactionKey, ITransactionSaga>(configure => kafkaSection.GetSection(nameof(ProducerConfig)).Bind(configure));
+        services.AddKafkaConsumer<TransactionKey, ITransactionSaga>(configure => kafkaSection.GetSection(nameof(ConsumerConfig)).Bind(configure));
 
         services.Configure<TransactionWorkerOptions>(opt =>
         {

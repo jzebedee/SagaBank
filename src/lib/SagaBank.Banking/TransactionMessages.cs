@@ -32,3 +32,6 @@ public partial record TransactionUpdateBalanceAvailableCompensation(Ulid Transac
 
 [MemoryPackable]
 public partial record TransactionUpdateBalanceAvailableFailed(Ulid TransactionId, IDictionary<string, string[]> Errors) : ITransactionSaga;
+
+[MemoryPackable]
+public partial record TransactionKey(int DebitAccountId, int CreditAccountId);

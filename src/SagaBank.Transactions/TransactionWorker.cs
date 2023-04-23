@@ -12,15 +12,15 @@ public class TransactionWorker : BackgroundService
     private readonly ILogger<TransactionWorker> _logger;
     private readonly IOptions<TransactionWorkerOptions> _options;
 
-    private readonly Consumer<Ulid, ITransactionSaga> _consumer;
-    private readonly Producer<Ulid, ITransactionSaga> _producer;
+    private readonly Consumer<TransactionKey, ITransactionSaga> _consumer;
+    private readonly Producer<TransactionKey, ITransactionSaga> _producer;
 
     public TransactionWorker(IServiceProvider provider,
                              IHostApplicationLifetime hostLifetime,
                              ILogger<TransactionWorker> logger,
                              IOptions<TransactionWorkerOptions> options,
-                             Consumer<Ulid, ITransactionSaga> consumer,
-                             Producer<Ulid, ITransactionSaga> producer)
+                             Consumer<TransactionKey, ITransactionSaga> consumer,
+                             Producer<TransactionKey, ITransactionSaga> producer)
     {
         _provider = provider;
         _hostLifetime = hostLifetime;
@@ -147,7 +147,7 @@ public class TransactionWorker : BackgroundService
         try
         {
             // Do not block on Consume indefinitely to avoid the possibility of a transaction timeout.
-            if (consumer.Consume(consumeTopic, _options.Value.ConsumeTimeout) is not Message<Ulid, ITransactionSaga> message)
+            if (consumer.Consume(consumeTopic, _options.Value.ConsumeTimeout) is not Message<TransactionKey, ITransactionSaga> message)
             {
                 _logger.LogWarning("Failed to read transaction saga message from {topic} within {timeout}", consumeTopic, _options.Value.ConsumeTimeout);
                 return;
@@ -174,7 +174,7 @@ public class TransactionWorker : BackgroundService
 
         return;
 
-        //async ValueTask<bool> TryProduceAsync(Ulid key, ITransactionSaga value, CancellationToken cancellationToken)
+        //async ValueTask<bool> TryProduceAsync(TransactionKey key, ITransactionSaga value, CancellationToken cancellationToken)
         //{
         //    while (true)
         //    {
@@ -213,7 +213,9 @@ public class TransactionWorker : BackgroundService
                     => new TransactionStartFailed(tx.TransactionId, Problems("bad-amount", "Amount must be greater than zero")),
                 var t => new TransactionUpdateBalanceAvailable(tx.TransactionId, -t.Amount, tx.DebitAccountId)
             };
-            producer.Produce(produceTopic, tx.TransactionId, reply);
+            producer.Produce(produceTopic,
+                new(DebitAccountId: tx.DebitAccountId, CreditAccountId: tx.CreditAccountId),
+                reply);
 
             return reply;
         }

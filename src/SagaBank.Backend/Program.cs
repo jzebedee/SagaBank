@@ -14,7 +14,7 @@ var dbConnectionString = builder.Configuration.GetConnectionString(nameof(BankCo
 builder.Services.AddDbContext<BankContext>(options => options.UseSqlite(dbConnectionString));
 
 var kafkaSection = builder.Configuration.GetSection("Kafka");
-builder.Services.AddKafkaProducer<Ulid, ITransactionSaga>(configure => kafkaSection.GetSection(nameof(ProducerConfig)).Bind(configure));
+builder.Services.AddKafkaProducer<TransactionKey, ITransactionSaga>(configure => kafkaSection.GetSection(nameof(ProducerConfig)).Bind(configure));
 //builder.Services.AddKafkaProducer<string, string>(configure => kafkaSection.GetSection(nameof(ProducerConfig)).Bind(configure));
 //builder.Services.AddKafkaProducer<int, Credit>(configure => kafkaSection.GetSection(nameof(ProducerConfig)).Bind(configure));
 //builder.Services.AddKafkaConsumer(configure => kafkaSection.GetSection(nameof(ConsumerConfig)).Bind(configure));
@@ -45,7 +45,7 @@ app.MapGet("/transactions/{id}", (Ulid id) =>
     })
     .WithName("GetTransactions");
 app.MapPost("/transactions",
-    async ([FromBody] TransactionRequest tx, BankContext bank, Producer<Ulid, ITransactionSaga> txProducer) =>
+    async ([FromBody] TransactionRequest tx, BankContext bank, Producer<TransactionKey, ITransactionSaga> txProducer) =>
     {
         //if (tx.DebitAccountId == tx.CreditAccountId)
         //{
@@ -68,7 +68,9 @@ app.MapPost("/transactions",
         //}
 
         var txid = Ulid.NewUlid();
-        var result = await txProducer.ProduceAsync(txTopic, txid, new TransactionStarting(txid, tx.Amount, tx.DebitAccountId, tx.CreditAccountId));
+        var result = await txProducer.ProduceAsync(txTopic,
+            new(DebitAccountId: tx.DebitAccountId, CreditAccountId: tx.CreditAccountId),
+            new TransactionStarting(txid, tx.Amount, tx.DebitAccountId, tx.CreditAccountId));
         return result.Status switch
         {
             PersistenceStatus.Persisted => Results.CreatedAtRoute("GetTransactions", new { id = txid }/*, new { debit, credit }*/),
