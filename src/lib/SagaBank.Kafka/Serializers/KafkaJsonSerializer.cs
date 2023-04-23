@@ -1,7 +1,7 @@
 ﻿using Confluent.Kafka;
 using System.Text.Json;
 
-namespace SagaBank.Kafka;
+namespace SagaBank.Kafka.Serializers;
 
 public sealed class KafkaJsonSerializer<T> : ISerializer<T>
 {
