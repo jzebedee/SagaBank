@@ -14,8 +14,7 @@ namespace SagaBank.Backend.Migrations
                 name: "Accounts",
                 columns: table => new
                 {
-                    AccountId = table.Column<int>(type: "INTEGER", nullable: false)
-                        .Annotation("Sqlite:Autoincrement", true),
+                    AccountId = table.Column<int>(type: "INTEGER", nullable: false),
                     Discriminator = table.Column<string>(type: "TEXT", nullable: false),
                     BankName = table.Column<string>(type: "TEXT", nullable: true),
                     ExternalAccountId = table.Column<string>(type: "TEXT", nullable: true),

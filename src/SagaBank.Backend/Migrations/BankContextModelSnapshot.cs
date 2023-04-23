@@ -19,7 +19,6 @@ namespace SagaBank.Backend.Migrations
             modelBuilder.Entity("SagaBank.Backend.Models.Account", b =>
                 {
                     b.Property<int>("AccountId")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Discriminator")

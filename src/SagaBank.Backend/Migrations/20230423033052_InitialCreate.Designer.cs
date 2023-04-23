@@ -10,7 +10,7 @@ using SagaBank.Backend;
 namespace SagaBank.Backend.Migrations
 {
     [DbContext(typeof(BankContext))]
-    [Migration("20230423024838_InitialCreate")]
+    [Migration("20230423033052_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -22,7 +22,6 @@ namespace SagaBank.Backend.Migrations
             modelBuilder.Entity("SagaBank.Backend.Models.Account", b =>
                 {
                     b.Property<int>("AccountId")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Discriminator")

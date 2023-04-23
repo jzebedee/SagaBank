@@ -34,6 +34,13 @@ public class BankContext : DbContext
         //}
 
         modelBuilder.Entity<Account>()
+            .HasKey(e => e.AccountId);
+
+        modelBuilder.Entity<Account>()
+            .Property(e => e.AccountId)
+            .ValueGeneratedNever();
+
+        modelBuilder.Entity<Account>()
             .HasMany(e => e.Debits)
             .WithOne(e => e.DebitAccount)
             .HasForeignKey(e => e.DebitAccountId)
