@@ -11,7 +11,7 @@ using SagaBank.Kafka.Extensions;
 var builder = WebApplication.CreateBuilder(args);
 
 var dbConnectionString = builder.Configuration.GetConnectionString(nameof(BankContext));
-builder.Services.AddDbContext<BankContext>(options => options.UseSqlite(dbConnectionString));
+builder.Services.AddDbContext<BankContext>(options => options.UseSqlite(dbConnectionString).EnableSensitiveDataLogging());
 
 var kafkaSection = builder.Configuration.GetSection("Kafka");
 builder.Services.AddKafkaProducer<TransactionKey, ITransactionSaga>(configure => kafkaSection.GetSection(nameof(ProducerConfig)).Bind(configure));
@@ -26,6 +26,14 @@ var app = builder.Build();
     using var scope = app.Services.CreateScope();
     var bank = scope.ServiceProvider.GetRequiredService<BankContext>();
     bank.Database.Migrate();
+
+    //bank.Accounts.ExecuteDelete();
+    if(!bank.Accounts.Any())
+    {
+        //seed database
+        bank.Accounts.AddRange(GenerateSeedAccounts());
+        bank.SaveChanges();
+    }
 }
 
 app.MapGet("/", () => $"Hello World! It's {DateTimeOffset.Now}");
@@ -109,3 +117,25 @@ app.MapPost("/accounts",
 //    });
 
 app.Run();
+
+static IEnumerable<InternalAccount> GenerateSeedAccounts()
+{
+    yield return new InternalAccount
+    {
+        AccountId = 0,
+        Balance = 1_000_000,
+        BalanceAvailable = 1_000_000,
+        Frozen = false
+    };
+
+    for(int i = 1; i <= 10_000; i++)
+    {
+        yield return new InternalAccount
+        {
+            AccountId = i,
+            Balance = 0,
+            BalanceAvailable = 0,
+            Frozen = i % 500 == 0
+        };
+    }
+}
