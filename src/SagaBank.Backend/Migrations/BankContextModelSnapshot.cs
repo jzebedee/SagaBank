@@ -55,7 +55,7 @@ namespace SagaBank.Backend.Migrations
 
                     b.HasIndex("DebitAccountId");
 
-                    b.ToTable("Transaction");
+                    b.ToTable("Transactions");
                 });
 
             modelBuilder.Entity("SagaBank.Backend.Models.ExternalAccount", b =>

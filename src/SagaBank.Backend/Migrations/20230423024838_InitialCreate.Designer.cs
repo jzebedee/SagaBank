@@ -10,7 +10,7 @@ using SagaBank.Backend;
 namespace SagaBank.Backend.Migrations
 {
     [DbContext(typeof(BankContext))]
-    [Migration("20230418065643_InitialCreate")]
+    [Migration("20230423024838_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -58,7 +58,7 @@ namespace SagaBank.Backend.Migrations
 
                     b.HasIndex("DebitAccountId");
 
-                    b.ToTable("Transaction");
+                    b.ToTable("Transactions");
                 });
 
             modelBuilder.Entity("SagaBank.Backend.Models.ExternalAccount", b =>

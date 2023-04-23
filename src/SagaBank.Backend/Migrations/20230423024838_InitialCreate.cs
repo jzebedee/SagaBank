@@ -29,7 +29,7 @@ namespace SagaBank.Backend.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "Transaction",
+                name: "Transactions",
                 columns: table => new
                 {
                     TransactionId = table.Column<byte[]>(type: "BLOB", nullable: false),
@@ -39,15 +39,15 @@ namespace SagaBank.Backend.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Transaction", x => x.TransactionId);
+                    table.PrimaryKey("PK_Transactions", x => x.TransactionId);
                     table.ForeignKey(
-                        name: "FK_Transaction_Accounts_CreditAccountId",
+                        name: "FK_Transactions_Accounts_CreditAccountId",
                         column: x => x.CreditAccountId,
                         principalTable: "Accounts",
                         principalColumn: "AccountId",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_Transaction_Accounts_DebitAccountId",
+                        name: "FK_Transactions_Accounts_DebitAccountId",
                         column: x => x.DebitAccountId,
                         principalTable: "Accounts",
                         principalColumn: "AccountId",
@@ -55,13 +55,13 @@ namespace SagaBank.Backend.Migrations
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_Transaction_CreditAccountId",
-                table: "Transaction",
+                name: "IX_Transactions_CreditAccountId",
+                table: "Transactions",
                 column: "CreditAccountId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Transaction_DebitAccountId",
-                table: "Transaction",
+                name: "IX_Transactions_DebitAccountId",
+                table: "Transactions",
                 column: "DebitAccountId");
         }
 
@@ -69,7 +69,7 @@ namespace SagaBank.Backend.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "Transaction");
+                name: "Transactions");
 
             migrationBuilder.DropTable(
                 name: "Accounts");

@@ -9,5 +9,3 @@ public class Transaction
     public int CreditAccountId { get; set; }
     public Account CreditAccount { get; set; }
 }
-
-public record TransactionRequest(decimal Amount, int DebitAccountId, int CreditAccountId);
