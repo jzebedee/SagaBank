@@ -149,7 +149,7 @@ public class TransactionWorker : BackgroundService
             // Do not block on Consume indefinitely to avoid the possibility of a transaction timeout.
             if (consumer.Consume(consumeTopic, _options.Value.ConsumeTimeout) is not Message<TransactionKey, ITransactionSaga> message)
             {
-                _logger.LogWarning("Failed to read transaction saga message from {topic} within {timeout}", consumeTopic, _options.Value.ConsumeTimeout);
+                //_logger.LogWarning("Failed to read transaction saga message from {topic} within {timeout}", consumeTopic, _options.Value.ConsumeTimeout);
                 return;
             }
 

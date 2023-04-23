@@ -50,7 +50,7 @@ public sealed class Consumer<TKey, TValue> : IDisposable
             return cr.Message;
         }
 
-        _logger.LogWarning("Failed to consume any event");
+        //_logger.LogWarning("Failed to consume any event");
         return null;
     }
 
