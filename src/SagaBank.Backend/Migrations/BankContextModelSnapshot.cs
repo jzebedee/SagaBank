@@ -27,7 +27,7 @@ namespace SagaBank.Backend.Migrations
 
                     b.HasKey("AccountId");
 
-                    b.ToTable("Accounts");
+                    b.ToTable("Accounts", (string)null);
 
                     b.HasDiscriminator<string>("Discriminator").HasValue("Account");
 
@@ -54,7 +54,7 @@ namespace SagaBank.Backend.Migrations
 
                     b.HasIndex("DebitAccountId");
 
-                    b.ToTable("Transactions");
+                    b.ToTable("Transactions", (string)null);
                 });
 
             modelBuilder.Entity("SagaBank.Backend.Models.ExternalAccount", b =>
