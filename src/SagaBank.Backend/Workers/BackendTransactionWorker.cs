@@ -151,6 +151,8 @@ public class BackendTransactionWorker : BackgroundService
         var producer = _producer;
         var produceTopic = _options.Value.ProduceTopic;
 
+        using var scope = _provider.CreateScope();
+
         try
         {
             // Do not block on Consume indefinitely to avoid the possibility of a transaction timeout.
@@ -160,7 +162,14 @@ public class BackendTransactionWorker : BackgroundService
                 return;
             }
 
-            ITransactionSaga? reply = message.Value switch
+            var tx = message.Value;
+
+            if(TryUpdateOutboxState(tx))
+            {
+                _logger.LogInformation("Marked outbox transaction {tx} as sent", tx);
+            }
+
+            ITransactionSaga? reply = tx switch
             {
                 TransactionUpdateBalanceAvailable updateBalA => HandleUpdateBalA(updateBalA),
                 _ => null
@@ -173,6 +182,7 @@ public class BackendTransactionWorker : BackgroundService
                 return;
             }
 
+            producer.Produce(produceTopic, message.Key, reply);
             _logger.LogInformation("Replied to transaction saga with {reply} on topic {topic}", reply, produceTopic);
         }
         catch (ConsumeException ex)
@@ -209,12 +219,28 @@ public class BackendTransactionWorker : BackgroundService
         static Dictionary<string, string[]> Problems(string reason, params string[] errors)
             => new() { { reason, errors } };
 
+        bool TryUpdateOutboxState(ITransactionSaga tx)
+        {
+            var messageBox = scope.ServiceProvider.GetRequiredService<MessageBoxContext>();
+            if(messageBox.Outbox
+                .Where(ob => ob.Id == tx.Request.TransactionId
+                          && ob.State == OutboxMessageState.NotSent
+                          && ob.Type == tx.GetType().Name)
+                .SingleOrDefault() is not OutboxMessage outboxMessage)
+            {
+                return false;
+            }
+
+            outboxMessage.State = OutboxMessageState.Sent;
+            messageBox.SaveChanges();
+
+            return true;
+        }
+
         ITransactionSaga? HandleUpdateBalA(TransactionUpdateBalanceAvailable tx)
         {
-            using var scope = _provider.CreateScope();
-
-            using var bank = scope.ServiceProvider.GetRequiredService<BankContext>();
-            using var messageBox = scope.ServiceProvider.GetRequiredService<MessageBoxContext>();
+            var bank = scope.ServiceProvider.GetRequiredService<BankContext>();
+            var messageBox = scope.ServiceProvider.GetRequiredService<MessageBoxContext>();
 
             var incoming = new InboxMessage
             {
@@ -228,13 +254,19 @@ public class BackendTransactionWorker : BackgroundService
                 messageBox.Process(incoming, dbTx =>
                 {
                     bank.Database.UseTransaction(dbTx.GetDbTransaction());
+                    //dbTx.CreateSavepoint("BeforeUpdateBalanceAvailable");
+
                     reply = bank.InternalAccounts.SingleOrDefault(ia => ia.AccountId == tx.AccountId) switch
                     {
                         InternalAccount ia when (ia.BalanceAvailable += tx.Amount) >= 0 => new TransactionUpdateBalanceAvailableSuccess(tx.Request, tx.Amount, tx.AccountId),
                         InternalAccount ia => new TransactionUpdateBalanceAvailableFailed(tx.Request, Problems("balance-insufficient", "There were insufficient funds available to debit")),
                         null => new TransactionUpdateBalanceAvailableFailed(tx.Request, Problems("bad-account", "Account was not found"))
                     };
-                    bank.SaveChanges();
+
+                    if (reply is TransactionUpdateBalanceAvailableSuccess)
+                    {
+                        bank.SaveChanges();
+                    }
 
                     //TODO: memorypack in prod
                     byte[] payload;
@@ -254,12 +286,15 @@ public class BackendTransactionWorker : BackgroundService
             }
             catch (DbUpdateException ex)
             when (ex is { InnerException: SqliteException innerEx }
-               && innerEx is { SqliteExtendedErrorCode: SQLitePCL.raw.SQLITE_CONSTRAINT_UNIQUE })
+               && innerEx is { SqliteExtendedErrorCode: SQLitePCL.raw.SQLITE_CONSTRAINT_PRIMARYKEY })
             {
                 var outgoing = messageBox.Outbox
                     .Where(ob => ob.Id == tx.Request.TransactionId
-                    && ob.State == OutboxMessageState.NotSent
-                    && ob.Type is "").Single();
+                              && ob.State == OutboxMessageState.NotSent
+                              && ob.Type.StartsWith("TransactionUpdateBalanceAvailable"))
+                    .Single();
+                //TODO: memorypack in prod
+                reply = System.Text.Json.JsonSerializer.Deserialize<ITransactionSaga>(outgoing.Payload);
             }
 
             return reply;
