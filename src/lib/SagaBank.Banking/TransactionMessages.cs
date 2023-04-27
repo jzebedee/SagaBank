@@ -20,7 +20,10 @@ namespace SagaBank.Banking;
 [JsonDerivedType(typeof(TransactionUpdateBalanceAvailableFailed), "update-bal-avail-failed")]
 [JsonDerivedType(typeof(TransactionUpdateBalanceAvailableSuccess), "update-bal-avail-success")]
 [JsonDerivedType(typeof(TransactionUpdateCredit), "update-cred")]
-public partial interface ITransactionSaga { }
+public partial interface ITransactionSaga
+{
+    TransactionRequest Request { get; }
+}
 
 [MemoryPackable]
 public partial record TransactionStarting(TransactionRequest Request) : ITransactionSaga;
