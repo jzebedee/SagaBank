@@ -63,6 +63,18 @@ public class MessageBoxContext : DbContext
 
         dbTx.Commit();
     }
+
+    public void Process(InboxMessage incoming, Action<IDbContextTransaction> action)
+    {
+        using var dbTx = Database.BeginTransaction();
+
+        Inbox.Add(incoming);
+        SaveChanges();
+
+        action(dbTx);
+
+        dbTx.Commit();
+    }
 }
 
 public class InboxMessage
