@@ -30,8 +30,8 @@ public class RandomLoanGenerator : BackgroundService
             var txid = Ulid.NewUlid();
 
             _producer.Produce(_options.ProduceTopic,
-                new(DebitAccountId: _options.ProviderAccountId, CreditAccountId: account),
-                new TransactionStarting(txid, amount, _options.ProviderAccountId, account));
+                new(DebitAccountId: _options.ProviderAccountId/*, CreditAccountId: account*/),
+                new TransactionStarting(new(txid, amount, _options.ProviderAccountId, account)));
 
             await Task.Delay(_options.ProduceDelay, stoppingToken);
         }

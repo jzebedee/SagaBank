@@ -62,7 +62,7 @@ app.MapGet("/transactions/{id}", (Ulid id) =>
     })
     .WithName("GetTransactions");
 app.MapPost("/transactions",
-    async ([FromBody] TransactionRequest tx, BankContext bank, Producer<TransactionKey, ITransactionSaga> txProducer) =>
+    async ([FromBody] BackendTransactionRequest tx, BankContext bank, Producer<TransactionKey, ITransactionSaga> txProducer) =>
     {
         //if (tx.DebitAccountId == tx.CreditAccountId)
         //{
@@ -86,8 +86,9 @@ app.MapPost("/transactions",
 
         var txid = Ulid.NewUlid();
         var result = await txProducer.ProduceAsync(txTopic,
-            new(DebitAccountId: tx.DebitAccountId, CreditAccountId: tx.CreditAccountId),
-            new TransactionStarting(txid, tx.Amount, tx.DebitAccountId, tx.CreditAccountId));
+            new(DebitAccountId: tx.DebitAccountId/*, CreditAccountId: tx.CreditAccountId*/),
+            new TransactionStarting(new(txid, tx.Amount, tx.DebitAccountId, tx.CreditAccountId)));
+
         return result.Status switch
         {
             PersistenceStatus.Persisted => Results.CreatedAtRoute("GetTransactions", new { id = txid }/*, new { debit, credit }*/),
