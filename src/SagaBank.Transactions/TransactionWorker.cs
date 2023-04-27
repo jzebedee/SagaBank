@@ -101,17 +101,18 @@ public class TransactionWorker : BackgroundService
 
             producer.TransactionReset(_options.Value.TransactionTimeout);
 
-            using var commitTimer = new PeriodicTimer(_options.Value.CommitPeriod);
+            DateTimeOffset nextCommit = DateTimeOffset.Now + _options.Value.CommitPeriod;
             while (!stoppingToken.IsCancellationRequested)
             {
                 try
                 {
                     ProcessTransactions();
 
-                    if (await commitTimer.WaitForNextTickAsync(stoppingToken))
+                    if (nextCommit <= DateTimeOffset.Now)
                     {
                         _logger.LogInformation("{worker} scheduled to commit Kafka transaction(s)", nameof(TransactionWorker));
                         producer.TransactionCommit(consumer.GetConsumerForTopic(consumeTopic), _options.Value.TransactionTimeout);
+                        nextCommit = DateTimeOffset.Now + _options.Value.CommitPeriod;
                     }
                 }
                 catch (Exception e)
