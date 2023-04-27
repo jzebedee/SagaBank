@@ -1,24 +1,21 @@
 ﻿using Confluent.Kafka;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using SagaBank.Kafka.Serializers;
 
 namespace SagaBank.Kafka;
 
 public sealed class Producer<TKey, TValue> : IDisposable
 {
-    private readonly IOptions<ProducerConfig> _options;
     private readonly ILogger _logger;
 
     private readonly Lazy<IProducer<TKey, TValue>> _producer;
 
-    public Producer(ILogger<Producer<TKey, TValue>> logger, IOptions<ProducerConfig> options)
+    public Producer(ILogger<Producer<TKey, TValue>> logger, ProducerConfig options)
     {
         _logger = logger;
-        _options = options;
         _producer = new(() =>
         {
-            var builder = new ProducerBuilder<TKey, TValue>(_options.Value);
+            var builder = new ProducerBuilder<TKey, TValue>(options);
             //builder.SetKeySerializer(KafkaMemoryPackSerializer<TKey>.Instance);
             //builder.SetValueSerializer(KafkaMemoryPackSerializer<TValue>.Instance);
             builder.SetKeySerializer(KafkaJsonSerializer<TKey>.Instance);
