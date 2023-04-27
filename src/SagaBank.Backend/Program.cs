@@ -44,7 +44,8 @@ builder.Services.Configure<RandomLoanGeneratorOptions>(configure =>
 {
     configure.ProviderAccountId = 0;
     configure.ProduceTopic = txTopic;
-    configure.ProduceDelay = TimeSpan.FromSeconds(5); //TimeSpan.FromMilliseconds(100);
+    //configure.ProduceDelay = TimeSpan.FromSeconds(5);
+    configure.ProduceDelay = TimeSpan.FromMilliseconds(100);
 });
 builder.Services.AddHostedService<RandomLoanGenerator>();
 
@@ -98,12 +99,14 @@ var app = builder.Build();
     messageBox.Database.Migrate();
 
     //bank.Accounts.ExecuteDelete();
+    using var dbTx = bank.Database.BeginTransaction();
     if (!bank.Accounts.Any())
     {
         //seed database
         bank.Accounts.AddRange(GenerateSeedAccounts());
         bank.SaveChanges();
     }
+    dbTx.Commit();
 }
 
 app.MapGet("/", () => $"Hello World! It's {DateTimeOffset.Now}");
