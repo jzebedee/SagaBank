@@ -1,4 +1,5 @@
 using Confluent.Kafka;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Options;
@@ -7,8 +8,6 @@ using SagaBank.Banking;
 using SagaBank.Kafka;
 using SagaBank.Kafka.Extensions;
 using SagaBank.Shared.Contexts;
-using System.Buffers;
-using System.Security.Principal;
 
 namespace SagaBank.Backend.Workers;
 
@@ -113,7 +112,7 @@ public class BackendTransactionWorker : BackgroundService
             {
                 try
                 {
-                    ConsumeKafkaTransactions();
+                    ProcessTransactions();
 
                     if (nextCommit <= DateTimeOffset.Now)
                     {
@@ -144,7 +143,7 @@ public class BackendTransactionWorker : BackgroundService
         }
     }
 
-    private void ConsumeKafkaTransactions()
+    private void ProcessTransactions()
     {
         var consumer = _consumer;
         var consumeTopic = _options.Value.ConsumeTopic;
@@ -224,32 +223,44 @@ public class BackendTransactionWorker : BackgroundService
             };
 
             ITransactionSaga? reply = default;
-            messageBox.Process(incoming, dbTx =>
+            try
             {
-                bank.Database.UseTransaction(dbTx.GetDbTransaction());
-                reply = bank.InternalAccounts.SingleOrDefault(ia => ia.AccountId == tx.AccountId) switch
+                messageBox.Process(incoming, dbTx =>
                 {
-                    InternalAccount ia when (ia.BalanceAvailable += tx.Amount) >= 0 => new TransactionUpdateBalanceAvailableSuccess(tx.Request, tx.Amount, tx.AccountId),
-                    InternalAccount ia => new TransactionUpdateBalanceAvailableFailed(tx.Request, Problems("balance-insufficient", "There were insufficient funds available to debit")),
-                    null => new TransactionUpdateBalanceAvailableFailed(tx.Request, Problems("bad-account", "Account was not found"))
-                };
-                bank.SaveChanges();
+                    bank.Database.UseTransaction(dbTx.GetDbTransaction());
+                    reply = bank.InternalAccounts.SingleOrDefault(ia => ia.AccountId == tx.AccountId) switch
+                    {
+                        InternalAccount ia when (ia.BalanceAvailable += tx.Amount) >= 0 => new TransactionUpdateBalanceAvailableSuccess(tx.Request, tx.Amount, tx.AccountId),
+                        InternalAccount ia => new TransactionUpdateBalanceAvailableFailed(tx.Request, Problems("balance-insufficient", "There were insufficient funds available to debit")),
+                        null => new TransactionUpdateBalanceAvailableFailed(tx.Request, Problems("bad-account", "Account was not found"))
+                    };
+                    bank.SaveChanges();
 
-                //TODO: memorypack in prod
-                byte[] payload;
-                {
-                    using var ms = new MemoryStream();
-                    System.Text.Json.JsonSerializer.Serialize(ms, reply);
-                    payload = ms.ToArray();
-                }
+                    //TODO: memorypack in prod
+                    byte[] payload;
+                    {
+                        using var ms = new MemoryStream();
+                        System.Text.Json.JsonSerializer.Serialize(ms, reply);
+                        payload = ms.ToArray();
+                    }
 
-                return new OutboxMessage
-                {
-                    Id = tx.Request.TransactionId,
-                    Type = reply.GetType().Name,
-                    Payload = payload
-                };
-            });
+                    return new OutboxMessage
+                    {
+                        Id = tx.Request.TransactionId,
+                        Type = reply.GetType().Name,
+                        Payload = payload
+                    };
+                });
+            }
+            catch (DbUpdateException ex)
+            when (ex is { InnerException: SqliteException innerEx }
+               && innerEx is { SqliteExtendedErrorCode: SQLitePCL.raw.SQLITE_CONSTRAINT_UNIQUE })
+            {
+                var outgoing = messageBox.Outbox
+                    .Where(ob => ob.Id == tx.Request.TransactionId
+                    && ob.State == OutboxMessageState.NotSent
+                    && ob.Type is "").Single();
+            }
 
             return reply;
         }
