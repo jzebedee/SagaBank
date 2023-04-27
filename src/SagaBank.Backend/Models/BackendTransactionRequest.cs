@@ -1,3 +1,3 @@
 ﻿namespace SagaBank.Backend.Models;
 
-public record TransactionRequest(decimal Amount, int DebitAccountId, int CreditAccountId);
+public record BackendTransactionRequest(decimal Amount, int DebitAccountId, int CreditAccountId);
