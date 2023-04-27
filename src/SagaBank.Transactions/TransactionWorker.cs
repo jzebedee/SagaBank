@@ -107,6 +107,12 @@ public class TransactionWorker : BackgroundService
                 try
                 {
                     ProcessTransactions();
+
+                    if (await commitTimer.WaitForNextTickAsync(stoppingToken))
+                    {
+                        _logger.LogInformation("{worker} scheduled to commit Kafka transaction(s)", nameof(TransactionWorker));
+                        producer.TransactionCommit(consumer.GetConsumerForTopic(consumeTopic), _options.Value.TransactionTimeout);
+                    }
                 }
                 catch (Exception e)
                 {
@@ -120,12 +126,6 @@ public class TransactionWorker : BackgroundService
                     consumer.Dispose();
 
                     break;
-                }
-
-                if (await commitTimer.WaitForNextTickAsync(stoppingToken))
-                {
-                    _logger.LogInformation("{worker} scheduled to commit Kafka transaction(s)", nameof(TransactionWorker));
-                    producer.TransactionCommit(consumer.GetConsumerForTopic(consumeTopic), _options.Value.TransactionTimeout);
                 }
             }
         }
@@ -161,7 +161,8 @@ public class TransactionWorker : BackgroundService
 
             if (reply is null)
             {
-                _logger.LogWarning("Unknown transaction saga type {tx} from {topic}", message.Value, consumeTopic);
+                _logger.LogWarning("Ignoring transaction saga type {tx} from {topic}", message.Value, consumeTopic);
+                //producer.TransactionReset(_options.Value.TransactionTimeout);
                 return;
             }
 
@@ -207,14 +208,14 @@ public class TransactionWorker : BackgroundService
 
             ITransactionSaga reply = tx switch
             {
-                var t when t.DebitAccountId == t.CreditAccountId
-                    => new TransactionStartFailed(tx.TransactionId, Problems("same-accounts", "Debit and credit accounts can not be the same")),
-                var t when t.Amount <= 0
-                    => new TransactionStartFailed(tx.TransactionId, Problems("bad-amount", "Amount must be greater than zero")),
-                var t => new TransactionUpdateBalanceAvailable(tx.TransactionId, -t.Amount, tx.DebitAccountId)
+                var t when t.Request.DebitAccountId == t.Request.CreditAccountId
+                    => new TransactionStartFailed(tx.Request, Problems("same-accounts", "Debit and credit accounts can not be the same")),
+                var t when t.Request.Amount <= 0
+                    => new TransactionStartFailed(tx.Request, Problems("bad-amount", "Amount must be greater than zero")),
+                var t => new TransactionUpdateBalanceAvailable(tx.Request, -t.Request.Amount, tx.Request.DebitAccountId)
             };
             producer.Produce(produceTopic,
-                new(DebitAccountId: tx.DebitAccountId, CreditAccountId: tx.CreditAccountId),
+                new(DebitAccountId: tx.Request.DebitAccountId/*, CreditAccountId: tx.CreditAccountId*/),
                 reply);
 
             return reply;
