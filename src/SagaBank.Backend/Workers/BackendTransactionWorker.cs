@@ -365,5 +365,56 @@ public class BackendTransactionWorker : BackgroundService
             return reply;
         }
 
+        ITransactionSaga? Handle<T>(T tx, Func<T, BankContext, ITransactionSaga> wrappedLogic) where T:ITransactionSaga
+        {
+            var bank = scope.ServiceProvider.GetRequiredService<BankContext>();
+            var messageBox = scope.ServiceProvider.GetRequiredService<MessageBoxContext>();
+
+            var incoming = new InboxMessage
+            {
+                Id = tx.Request.TransactionId,
+                Type = typeof(T).Name
+            };
+
+            ITransactionSaga? reply = default;
+            try
+            {
+                messageBox.Process(incoming, dbTx =>
+                {
+                    bank.Database.UseTransaction(dbTx.GetDbTransaction());
+
+                    reply = wrappedLogic(tx, bank);
+
+                    //TODO: memorypack in prod
+                    byte[] payload;
+                    {
+                        using var ms = new MemoryStream();
+                        System.Text.Json.JsonSerializer.Serialize(ms, reply);
+                        payload = ms.ToArray();
+                    }
+
+                    return new OutboxMessage
+                    {
+                        Id = tx.Request.TransactionId,
+                        Type = reply.GetType().Name,
+                        Payload = payload
+                    };
+                });
+            }
+            catch (DbUpdateException ex)
+            when (ex is { InnerException: SqliteException innerEx }
+               && innerEx is { SqliteExtendedErrorCode: SQLitePCL.raw.SQLITE_CONSTRAINT_PRIMARYKEY })
+            {
+                var outgoing = messageBox.Outbox
+                    .Where(ob => ob.Id == tx.Request.TransactionId
+                              && ob.State == OutboxMessageState.NotSent
+                              && ob.Type == reply.GetType().Name)
+                    .Single();
+                //TODO: memorypack in prod
+                reply = System.Text.Json.JsonSerializer.Deserialize<ITransactionSaga>(outgoing.Payload);
+            }
+
+            return reply;
+        }
     }
 }
