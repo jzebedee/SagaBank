@@ -240,129 +240,43 @@ public class BackendTransactionWorker : BackgroundService
 
         ITransactionSaga? HandleUpdateBalA(TransactionUpdateBalanceAvailable tx)
         {
-            var bank = scope.ServiceProvider.GetRequiredService<BankContext>();
-            var messageBox = scope.ServiceProvider.GetRequiredService<MessageBoxContext>();
-
-            var incoming = new InboxMessage
+            return Handle(tx, (_, bank) =>
             {
-                Id = tx.Request.TransactionId,
-                Type = typeof(TransactionUpdateBalanceAvailable).Name
-            };
-
-            ITransactionSaga? reply = default;
-            try
-            {
-                messageBox.Process(incoming, dbTx =>
+                ITransactionSaga reply = bank.InternalAccounts.SingleOrDefault(ia => ia.AccountId == tx.AccountId) switch
                 {
-                    bank.Database.UseTransaction(dbTx.GetDbTransaction());
-                    //dbTx.CreateSavepoint("BeforeUpdateBalanceAvailable");
+                    InternalAccount ia when (ia.BalanceAvailable += tx.Amount) >= 0 => new TransactionUpdateBalanceAvailableSuccess(tx.Request, tx.Amount, tx.AccountId),
+                    InternalAccount ia => new TransactionUpdateBalanceAvailableFailed(tx.Request, ia.AccountId, Problems("balance-insufficient", "There were insufficient funds available to debit")),
+                    null => new TransactionUpdateBalanceAvailableFailed(tx.Request, tx.AccountId, Problems("bad-account", "Account was not found"))
+                };
 
-                    reply = bank.InternalAccounts.SingleOrDefault(ia => ia.AccountId == tx.AccountId) switch
-                    {
-                        InternalAccount ia when (ia.BalanceAvailable += tx.Amount) >= 0 => new TransactionUpdateBalanceAvailableSuccess(tx.Request, tx.Amount, tx.AccountId),
-                        InternalAccount ia => new TransactionUpdateBalanceAvailableFailed(tx.Request, ia.AccountId, Problems("balance-insufficient", "There were insufficient funds available to debit")),
-                        null => new TransactionUpdateBalanceAvailableFailed(tx.Request, tx.AccountId, Problems("bad-account", "Account was not found"))
-                    };
+                if (reply is TransactionUpdateBalanceAvailableSuccess)
+                {
+                    bank.SaveChanges();
+                }
 
-                    if (reply is TransactionUpdateBalanceAvailableSuccess)
-                    {
-                        bank.SaveChanges();
-                    }
-
-                    //TODO: memorypack in prod
-                    byte[] payload;
-                    {
-                        using var ms = new MemoryStream();
-                        System.Text.Json.JsonSerializer.Serialize(ms, reply);
-                        payload = ms.ToArray();
-                    }
-
-                    return new OutboxMessage
-                    {
-                        Id = tx.Request.TransactionId,
-                        Type = reply.GetType().Name,
-                        Payload = payload
-                    };
-                });
-            }
-            catch (DbUpdateException ex)
-            when (ex is { InnerException: SqliteException innerEx }
-               && innerEx is { SqliteExtendedErrorCode: SQLitePCL.raw.SQLITE_CONSTRAINT_PRIMARYKEY })
-            {
-                var outgoing = messageBox.Outbox
-                    .Where(ob => ob.Id == tx.Request.TransactionId
-                              && ob.State == OutboxMessageState.NotSent
-                              && ob.Type.StartsWith("TransactionUpdateBalanceAvailable"))
-                    .Single();
-                //TODO: memorypack in prod
-                reply = System.Text.Json.JsonSerializer.Deserialize<ITransactionSaga>(outgoing.Payload);
-            }
-
-            return reply;
+                return reply;
+            });
         }
 
         ITransactionSaga? HandleUpdateCredit(TransactionUpdateCredit tx)
         {
-            var bank = scope.ServiceProvider.GetRequiredService<BankContext>();
-            var messageBox = scope.ServiceProvider.GetRequiredService<MessageBoxContext>();
-
-            var incoming = new InboxMessage
+            return Handle(tx, (_, bank) =>
             {
-                Id = tx.Request.TransactionId,
-                Type = typeof(TransactionUpdateCredit).Name
-            };
-
-            ITransactionSaga? reply = default;
-            try
-            {
-                messageBox.Process(incoming, dbTx =>
+                ITransactionSaga reply = bank.InternalAccounts.SingleOrDefault(ia => ia.AccountId == tx.AccountId) switch
                 {
-                    bank.Database.UseTransaction(dbTx.GetDbTransaction());
-                    //dbTx.CreateSavepoint("BeforeUpdateBalanceAvailable");
+                    InternalAccount ia and { Frozen: true } => new TransactionUpdateCreditFailed(tx.Request, ia.AccountId, Problems("account-frozen", "Account was frozen")),
+                    InternalAccount ia when (ia.Balance += tx.Amount) >= 0 => new TransactionUpdateCreditSuccess(tx.Request, tx.Amount, tx.AccountId),
+                    InternalAccount ia => new TransactionUpdateCreditFailed(tx.Request, tx.AccountId, Problems("update-failed", "Account did not have a positive balance after update")),
+                    null => new TransactionUpdateCreditFailed(tx.Request, tx.AccountId, Problems("bad-account", "Account was not found"))
+                };
 
-                    reply = bank.InternalAccounts.SingleOrDefault(ia => ia.AccountId == tx.AccountId) switch
-                    {
-                        InternalAccount ia and { Frozen: true } => new TransactionUpdateCreditFailed(tx.Request, ia.AccountId, Problems("account-frozen", "Account was frozen")),
-                        InternalAccount ia when (ia.Balance += tx.Amount) >= 0 => new TransactionUpdateCreditSuccess(tx.Request, tx.Amount, tx.AccountId),
-                        InternalAccount ia => new TransactionUpdateCreditFailed(tx.Request, tx.AccountId, Problems("update-failed", "Account did not have a positive balance after update")),
-                        null => new TransactionUpdateCreditFailed(tx.Request, tx.AccountId, Problems("bad-account", "Account was not found"))
-                    };
+                if (reply is TransactionUpdateCreditSuccess)
+                {
+                    bank.SaveChanges();
+                }
 
-                    if (reply is TransactionUpdateCreditSuccess)
-                    {
-                        bank.SaveChanges();
-                    }
-
-                    //TODO: memorypack in prod
-                    byte[] payload;
-                    {
-                        using var ms = new MemoryStream();
-                        System.Text.Json.JsonSerializer.Serialize(ms, reply);
-                        payload = ms.ToArray();
-                    }
-
-                    return new OutboxMessage
-                    {
-                        Id = tx.Request.TransactionId,
-                        Type = reply.GetType().Name,
-                        Payload = payload
-                    };
-                });
-            }
-            catch (DbUpdateException ex)
-            when (ex is { InnerException: SqliteException innerEx }
-               && innerEx is { SqliteExtendedErrorCode: SQLitePCL.raw.SQLITE_CONSTRAINT_PRIMARYKEY })
-            {
-                var outgoing = messageBox.Outbox
-                    .Where(ob => ob.Id == tx.Request.TransactionId
-                              && ob.State == OutboxMessageState.NotSent
-                              && ob.Type == typeof(TransactionUpdateCredit).Name)
-                    .Single();
-                //TODO: memorypack in prod
-                reply = System.Text.Json.JsonSerializer.Deserialize<ITransactionSaga>(outgoing.Payload);
-            }
-
-            return reply;
+                return reply;
+            });
         }
 
         ITransactionSaga? Handle<T>(T tx, Func<T, BankContext, ITransactionSaga> wrappedLogic) where T:ITransactionSaga
