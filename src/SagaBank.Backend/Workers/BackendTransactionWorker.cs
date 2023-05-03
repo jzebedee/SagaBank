@@ -164,7 +164,7 @@ public class BackendTransactionWorker : BackgroundService
 
             var tx = message.Value;
 
-            if(TryUpdateOutboxState(tx))
+            if (TryUpdateOutboxState(tx))
             {
                 _logger.LogInformation("Marked outbox transaction {tx} as sent", tx);
             }
@@ -172,6 +172,7 @@ public class BackendTransactionWorker : BackgroundService
             ITransactionSaga? reply = tx switch
             {
                 TransactionUpdateBalanceAvailable updateBalA => HandleUpdateBalA(updateBalA),
+                TransactionUpdateCredit updateCredit => HandleUpdateCredit(updateCredit),
                 _ => null
             };
 
@@ -222,7 +223,7 @@ public class BackendTransactionWorker : BackgroundService
         bool TryUpdateOutboxState(ITransactionSaga tx)
         {
             var messageBox = scope.ServiceProvider.GetRequiredService<MessageBoxContext>();
-            if(messageBox.Outbox
+            if (messageBox.Outbox
                 .Where(ob => ob.Id == tx.Request.TransactionId
                           && ob.State == OutboxMessageState.NotSent
                           && ob.Type == tx.GetType().Name)
@@ -259,8 +260,8 @@ public class BackendTransactionWorker : BackgroundService
                     reply = bank.InternalAccounts.SingleOrDefault(ia => ia.AccountId == tx.AccountId) switch
                     {
                         InternalAccount ia when (ia.BalanceAvailable += tx.Amount) >= 0 => new TransactionUpdateBalanceAvailableSuccess(tx.Request, tx.Amount, tx.AccountId),
-                        InternalAccount ia => new TransactionUpdateBalanceAvailableFailed(tx.Request, Problems("balance-insufficient", "There were insufficient funds available to debit")),
-                        null => new TransactionUpdateBalanceAvailableFailed(tx.Request, Problems("bad-account", "Account was not found"))
+                        InternalAccount ia => new TransactionUpdateBalanceAvailableFailed(tx.Request, ia.AccountId, Problems("balance-insufficient", "There were insufficient funds available to debit")),
+                        null => new TransactionUpdateBalanceAvailableFailed(tx.Request, tx.AccountId, Problems("bad-account", "Account was not found"))
                     };
 
                     if (reply is TransactionUpdateBalanceAvailableSuccess)
@@ -299,5 +300,70 @@ public class BackendTransactionWorker : BackgroundService
 
             return reply;
         }
+
+        ITransactionSaga? HandleUpdateCredit(TransactionUpdateCredit tx)
+        {
+            var bank = scope.ServiceProvider.GetRequiredService<BankContext>();
+            var messageBox = scope.ServiceProvider.GetRequiredService<MessageBoxContext>();
+
+            var incoming = new InboxMessage
+            {
+                Id = tx.Request.TransactionId,
+                Type = typeof(TransactionUpdateCredit).Name
+            };
+
+            ITransactionSaga? reply = default;
+            try
+            {
+                messageBox.Process(incoming, dbTx =>
+                {
+                    bank.Database.UseTransaction(dbTx.GetDbTransaction());
+                    //dbTx.CreateSavepoint("BeforeUpdateBalanceAvailable");
+
+                    reply = bank.InternalAccounts.SingleOrDefault(ia => ia.AccountId == tx.AccountId) switch
+                    {
+                        InternalAccount ia and { Frozen: true } => new TransactionUpdateCreditFailed(tx.Request, ia.AccountId, Problems("account-frozen", "Account was frozen")),
+                        InternalAccount ia when (ia.Balance += tx.Amount) >= 0 => new TransactionUpdateCreditSuccess(tx.Request, tx.Amount, tx.AccountId),
+                        InternalAccount ia => new TransactionUpdateCreditFailed(tx.Request, tx.AccountId, Problems("update-failed", "Account did not have a positive balance after update")),
+                        null => new TransactionUpdateCreditFailed(tx.Request, tx.AccountId, Problems("bad-account", "Account was not found"))
+                    };
+
+                    if (reply is TransactionUpdateCreditSuccess)
+                    {
+                        bank.SaveChanges();
+                    }
+
+                    //TODO: memorypack in prod
+                    byte[] payload;
+                    {
+                        using var ms = new MemoryStream();
+                        System.Text.Json.JsonSerializer.Serialize(ms, reply);
+                        payload = ms.ToArray();
+                    }
+
+                    return new OutboxMessage
+                    {
+                        Id = tx.Request.TransactionId,
+                        Type = reply.GetType().Name,
+                        Payload = payload
+                    };
+                });
+            }
+            catch (DbUpdateException ex)
+            when (ex is { InnerException: SqliteException innerEx }
+               && innerEx is { SqliteExtendedErrorCode: SQLitePCL.raw.SQLITE_CONSTRAINT_PRIMARYKEY })
+            {
+                var outgoing = messageBox.Outbox
+                    .Where(ob => ob.Id == tx.Request.TransactionId
+                              && ob.State == OutboxMessageState.NotSent
+                              && ob.Type == typeof(TransactionUpdateCredit).Name)
+                    .Single();
+                //TODO: memorypack in prod
+                reply = System.Text.Json.JsonSerializer.Deserialize<ITransactionSaga>(outgoing.Payload);
+            }
+
+            return reply;
+        }
+
     }
 }
