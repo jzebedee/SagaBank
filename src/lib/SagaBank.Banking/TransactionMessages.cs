@@ -33,6 +33,11 @@ public partial interface ITransactionSaga
     TransactionRequest Request { get; }
 }
 
+public interface ITransactionSagaUpdate
+{
+    Ulid UpdateId { get; }
+}
+
 [MemoryPackable]
 public partial record TransactionStarting(TransactionRequest Request) : ITransactionSaga;
 
@@ -40,28 +45,28 @@ public partial record TransactionStarting(TransactionRequest Request) : ITransac
 public partial record TransactionStartFailed(TransactionRequest Request, IDictionary<string, string[]> Errors) : ITransactionSaga;
 
 [MemoryPackable]
-public partial record TransactionUpdateBalanceAvailable(TransactionRequest Request, decimal Amount, int AccountId) : ITransactionSaga;
+public partial record TransactionUpdateBalanceAvailable(TransactionRequest Request, Ulid UpdateId, decimal Amount, int AccountId) : ITransactionSaga, ITransactionSagaUpdate;
 
 [MemoryPackable]
-public partial record TransactionUpdateBalanceAvailableCompensation(TransactionRequest Request, decimal Amount, int AccountId) : ITransactionSaga;
+public partial record TransactionUpdateBalanceAvailableCompensation(TransactionRequest Request, Ulid UpdateId, decimal Amount, int AccountId) : ITransactionSaga, ITransactionSagaUpdate;
 
 [MemoryPackable]
-public partial record TransactionUpdateBalanceAvailableFailed(TransactionRequest Request, int AccountId, IDictionary<string, string[]> Errors) : ITransactionSaga;
+public partial record TransactionUpdateBalanceAvailableFailed(TransactionRequest Request, Ulid UpdateId, int AccountId, IDictionary<string, string[]> Errors) : ITransactionSaga, ITransactionSagaUpdate;
 
 [MemoryPackable]
-public partial record TransactionUpdateBalanceAvailableSuccess(TransactionRequest Request, decimal Amount, int AccountId) : ITransactionSaga;
+public partial record TransactionUpdateBalanceAvailableSuccess(TransactionRequest Request, Ulid UpdateId, decimal Amount, int AccountId) : ITransactionSaga, ITransactionSagaUpdate;
 
 [MemoryPackable]
-public partial record TransactionUpdateBalance(TransactionRequest Request, decimal Amount, int AccountId) : ITransactionSaga;
+public partial record TransactionUpdateBalance(TransactionRequest Request, Ulid UpdateId, decimal Amount, int AccountId) : ITransactionSaga, ITransactionSagaUpdate;
 
 [MemoryPackable]
-public partial record TransactionUpdateBalanceSuccess(TransactionRequest Request, decimal Amount, int AccountId) : ITransactionSaga;
+public partial record TransactionUpdateBalanceSuccess(TransactionRequest Request, Ulid UpdateId, decimal Amount, int AccountId) : ITransactionSaga, ITransactionSagaUpdate;
 
 [MemoryPackable]
-public partial record TransactionUpdateBalanceFailed(TransactionRequest Request, int AccountId, IDictionary<string, string[]> Errors) : ITransactionSaga;
+public partial record TransactionUpdateBalanceFailed(TransactionRequest Request, Ulid UpdateId, int AccountId, IDictionary<string, string[]> Errors) : ITransactionSaga, ITransactionSagaUpdate;
 
 [MemoryPackable]
-public partial record TransactionUpdateBalanceCompensation(TransactionRequest Request, decimal Amount, int AccountId) : ITransactionSaga;
+public partial record TransactionUpdateBalanceCompensation(TransactionRequest Request, Ulid UpdateId, decimal Amount, int AccountId) : ITransactionSaga, ITransactionSagaUpdate;
 
 [MemoryPackable]
 public partial record TransactionFinished(TransactionRequest Request) : ITransactionSaga;

@@ -210,13 +210,14 @@ public class TransactionWorker : BackgroundService
 
         ITransactionSaga HandleTransactionStart(TransactionStarting tx)
         {
+            Ulid updateId = Ulid.NewUlid();
             ITransactionSaga reply = tx switch
             {
                 var t when t.Request.DebitAccountId == t.Request.CreditAccountId
                     => new TransactionStartFailed(tx.Request, Problems("same-accounts", "Debit and credit accounts can not be the same")),
                 var t when t.Request.Amount <= 0
                     => new TransactionStartFailed(tx.Request, Problems("bad-amount", "Amount must be greater than zero")),
-                var t => new TransactionUpdateBalanceAvailable(tx.Request, -t.Request.Amount, tx.Request.DebitAccountId)
+                var t => new TransactionUpdateBalanceAvailable(tx.Request, updateId, - t.Request.Amount, tx.Request.DebitAccountId)
             };
             producer.Produce(produceTopic,
                 new(DebitAccountId: tx.Request.DebitAccountId/*, CreditAccountId: tx.CreditAccountId*/),
@@ -227,10 +228,11 @@ public class TransactionWorker : BackgroundService
 
         ITransactionSaga HandleUpdateBalanceAvailableSuccess(TransactionUpdateBalanceAvailableSuccess tx)
         {
+            Ulid updateId = Ulid.NewUlid();
             ITransactionSaga reply = tx switch
             {
                 var t when t.Request.DebitAccountId == t.AccountId
-                    => new TransactionUpdateBalance(tx.Request, tx.Request.Amount, tx.Request.CreditAccountId),
+                    => new TransactionUpdateBalance(tx.Request, updateId, tx.Request.Amount, tx.Request.CreditAccountId),
                 var t when t.Request.CreditAccountId == t.AccountId
                     => new TransactionFinished(tx.Request),
                 _ => throw new InvalidOperationException()
@@ -247,12 +249,13 @@ public class TransactionWorker : BackgroundService
 
         ITransactionSaga HandleUpdateBalanceSuccess(TransactionUpdateBalanceSuccess tx)
         {
+            Ulid updateId = Ulid.NewUlid();
             ITransactionSaga reply = tx switch
             {
                 var t when t.Request.CreditAccountId == t.AccountId
-                    => new TransactionUpdateBalance(tx.Request, -tx.Request.Amount, tx.Request.DebitAccountId),
+                    => new TransactionUpdateBalance(tx.Request, updateId, - tx.Request.Amount, tx.Request.DebitAccountId),
                 var t when t.Request.DebitAccountId == t.AccountId
-                    => new TransactionUpdateBalanceAvailable(tx.Request, tx.Request.Amount, tx.Request.CreditAccountId),
+                    => new TransactionUpdateBalanceAvailable(tx.Request, updateId, tx.Request.Amount, tx.Request.CreditAccountId),
                 _ => throw new InvalidOperationException()
                 //var t when t.Request.Amount <= 0
                 //    => new TransactionStartFailed(tx.Request, Problems("bad-amount", "Amount must be greater than zero")),
