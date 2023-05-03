@@ -10,10 +10,11 @@ namespace SagaBank.Banking;
 [MemoryPackUnion(3, typeof(TransactionUpdateBalanceAvailableCompensation))]
 [MemoryPackUnion(4, typeof(TransactionUpdateBalanceAvailableFailed))]
 [MemoryPackUnion(5, typeof(TransactionUpdateBalanceAvailableSuccess))]
-[MemoryPackUnion(6, typeof(TransactionUpdateCredit))]
-[MemoryPackUnion(7, typeof(TransactionUpdateCreditCompensation))]
-[MemoryPackUnion(8, typeof(TransactionUpdateCreditFailed))]
-[MemoryPackUnion(9, typeof(TransactionUpdateCreditSuccess))]
+[MemoryPackUnion(6, typeof(TransactionUpdateBalance))]
+[MemoryPackUnion(7, typeof(TransactionUpdateBalanceCompensation))]
+[MemoryPackUnion(8, typeof(TransactionUpdateBalanceFailed))]
+[MemoryPackUnion(9, typeof(TransactionUpdateBalanceSuccess))]
+[MemoryPackUnion(10, typeof(TransactionFinished))]
 [JsonPolymorphic(UnknownDerivedTypeHandling = JsonUnknownDerivedTypeHandling.FallBackToNearestAncestor)]
 [JsonDerivedType(typeof(ITransactionSaga), "base")]
 [JsonDerivedType(typeof(TransactionStarting), "starting")]
@@ -22,10 +23,11 @@ namespace SagaBank.Banking;
 [JsonDerivedType(typeof(TransactionUpdateBalanceAvailableCompensation), "update-bal-avail-compensation")]
 [JsonDerivedType(typeof(TransactionUpdateBalanceAvailableFailed), "update-bal-avail-failed")]
 [JsonDerivedType(typeof(TransactionUpdateBalanceAvailableSuccess), "update-bal-avail-success")]
-[JsonDerivedType(typeof(TransactionUpdateCredit), "update-cred")]
-[JsonDerivedType(typeof(TransactionUpdateCreditCompensation), "update-cred-compensation")]
-[JsonDerivedType(typeof(TransactionUpdateCreditFailed), "update-cred-failed")]
-[JsonDerivedType(typeof(TransactionUpdateCreditSuccess), "update-cred-success")]
+[JsonDerivedType(typeof(TransactionUpdateBalance), "update-bal")]
+[JsonDerivedType(typeof(TransactionUpdateBalanceCompensation), "update-bal-compensation")]
+[JsonDerivedType(typeof(TransactionUpdateBalanceFailed), "update-bal-failed")]
+[JsonDerivedType(typeof(TransactionUpdateBalanceSuccess), "update-bal-success")]
+[JsonDerivedType(typeof(TransactionFinished), "finished")]
 public partial interface ITransactionSaga
 {
     TransactionRequest Request { get; }
@@ -50,16 +52,19 @@ public partial record TransactionUpdateBalanceAvailableFailed(TransactionRequest
 public partial record TransactionUpdateBalanceAvailableSuccess(TransactionRequest Request, decimal Amount, int AccountId) : ITransactionSaga;
 
 [MemoryPackable]
-public partial record TransactionUpdateCredit(TransactionRequest Request, decimal Amount, int AccountId) : ITransactionSaga;
+public partial record TransactionUpdateBalance(TransactionRequest Request, decimal Amount, int AccountId) : ITransactionSaga;
 
 [MemoryPackable]
-public partial record TransactionUpdateCreditSuccess(TransactionRequest Request, decimal Amount, int AccountId) : ITransactionSaga;
+public partial record TransactionUpdateBalanceSuccess(TransactionRequest Request, decimal Amount, int AccountId) : ITransactionSaga;
 
 [MemoryPackable]
-public partial record TransactionUpdateCreditFailed(TransactionRequest Request, int AccountId, IDictionary<string, string[]> Errors) : ITransactionSaga;
+public partial record TransactionUpdateBalanceFailed(TransactionRequest Request, int AccountId, IDictionary<string, string[]> Errors) : ITransactionSaga;
 
 [MemoryPackable]
-public partial record TransactionUpdateCreditCompensation(TransactionRequest Request, decimal Amount, int AccountId) : ITransactionSaga;
+public partial record TransactionUpdateBalanceCompensation(TransactionRequest Request, decimal Amount, int AccountId) : ITransactionSaga;
+
+[MemoryPackable]
+public partial record TransactionFinished(TransactionRequest Request) : ITransactionSaga;
 
 [MemoryPackable]
 public partial record TransactionKey(int DebitAccountId);

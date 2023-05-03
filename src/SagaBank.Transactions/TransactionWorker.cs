@@ -161,6 +161,7 @@ public class TransactionWorker : BackgroundService
             {
                 TransactionStarting txStart => HandleTransactionStart(txStart),
                 TransactionUpdateBalanceAvailableSuccess txBalASuccess => HandleUpdateBalanceAvailableSuccess(txBalASuccess),
+                TransactionUpdateBalanceSuccess txBalSuccess => HandleUpdateBalanceSuccess(txBalSuccess),
                 _ => null
             };
 
@@ -229,7 +230,29 @@ public class TransactionWorker : BackgroundService
             ITransactionSaga reply = tx switch
             {
                 var t when t.Request.DebitAccountId == t.AccountId
-                    => new TransactionUpdateCredit(tx.Request, tx.Request.Amount, tx.Request.CreditAccountId),
+                    => new TransactionUpdateBalance(tx.Request, tx.Request.Amount, tx.Request.CreditAccountId),
+                var t when t.Request.CreditAccountId == t.AccountId
+                    => new TransactionFinished(tx.Request),
+                _ => throw new InvalidOperationException()
+                //var t when t.Request.Amount <= 0
+                //    => new TransactionStartFailed(tx.Request, Problems("bad-amount", "Amount must be greater than zero")),
+                //var t => new TransactionUpdateBalanceAvailable(tx.Request, -t.Request.Amount, tx.Request.DebitAccountId)
+            };
+            producer.Produce(produceTopic,
+                new(DebitAccountId: tx.Request.DebitAccountId/*, CreditAccountId: tx.CreditAccountId*/),
+                reply);
+
+            return reply;
+        }
+
+        ITransactionSaga HandleUpdateBalanceSuccess(TransactionUpdateBalanceSuccess tx)
+        {
+            ITransactionSaga reply = tx switch
+            {
+                var t when t.Request.CreditAccountId == t.AccountId
+                    => new TransactionUpdateBalance(tx.Request, -tx.Request.Amount, tx.Request.DebitAccountId),
+                var t when t.Request.DebitAccountId == t.AccountId
+                    => new TransactionUpdateBalanceAvailable(tx.Request, tx.Request.Amount, tx.Request.CreditAccountId),
                 _ => throw new InvalidOperationException()
                 //var t when t.Request.Amount <= 0
                 //    => new TransactionStartFailed(tx.Request, Problems("bad-amount", "Amount must be greater than zero")),
