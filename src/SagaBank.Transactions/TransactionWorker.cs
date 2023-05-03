@@ -154,9 +154,13 @@ public class TransactionWorker : BackgroundService
                 return;
             }
 
+            var tx = message.Value;
+            _logger.LogInformation("Transaction {tx} on topic {topic}", tx, consumeTopic);
+
             ITransactionSaga? reply = message.Value switch
             {
                 TransactionStarting txStart => HandleTransactionStart(txStart),
+                TransactionUpdateBalanceAvailableSuccess txBalASuccess => HandleUpdateBalanceAvailableSuccess(txBalASuccess),
                 _ => null
             };
 
@@ -172,7 +176,7 @@ public class TransactionWorker : BackgroundService
         catch (ConsumeException ex)
         {
             _logger.LogError(ex, "Failed to consume on topic {topic}", consumeTopic);
-        }
+        } 
 
         return;
 
@@ -205,8 +209,6 @@ public class TransactionWorker : BackgroundService
 
         ITransactionSaga HandleTransactionStart(TransactionStarting tx)
         {
-            _logger.LogInformation("Transaction starting {tx} on topic {topic}", tx, consumeTopic);
-
             ITransactionSaga reply = tx switch
             {
                 var t when t.Request.DebitAccountId == t.Request.CreditAccountId
@@ -214,6 +216,24 @@ public class TransactionWorker : BackgroundService
                 var t when t.Request.Amount <= 0
                     => new TransactionStartFailed(tx.Request, Problems("bad-amount", "Amount must be greater than zero")),
                 var t => new TransactionUpdateBalanceAvailable(tx.Request, -t.Request.Amount, tx.Request.DebitAccountId)
+            };
+            producer.Produce(produceTopic,
+                new(DebitAccountId: tx.Request.DebitAccountId/*, CreditAccountId: tx.CreditAccountId*/),
+                reply);
+
+            return reply;
+        }
+
+        ITransactionSaga HandleUpdateBalanceAvailableSuccess(TransactionUpdateBalanceAvailableSuccess tx)
+        {
+            ITransactionSaga reply = tx switch
+            {
+                var t when t.Request.DebitAccountId == t.AccountId
+                    => new TransactionUpdateCredit(tx.Request, tx.Request.Amount, tx.Request.CreditAccountId),
+                _ => throw new InvalidOperationException()
+                //var t when t.Request.Amount <= 0
+                //    => new TransactionStartFailed(tx.Request, Problems("bad-amount", "Amount must be greater than zero")),
+                //var t => new TransactionUpdateBalanceAvailable(tx.Request, -t.Request.Amount, tx.Request.DebitAccountId)
             };
             producer.Produce(produceTopic,
                 new(DebitAccountId: tx.Request.DebitAccountId/*, CreditAccountId: tx.CreditAccountId*/),
