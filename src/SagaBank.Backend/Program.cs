@@ -40,14 +40,13 @@ builder.Services.AddKafkaConsumer<TransactionKey, ITransactionSaga>(configure =>
 //builder.Services.AddKafkaProducer<int, Credit>(configure => kafkaSection.GetSection(nameof(ProducerConfig)).Bind(configure));
 //builder.Services.AddKafkaConsumer(configure => kafkaSection.GetSection(nameof(ConsumerConfig)).Bind(configure));
 
-builder.Services.Configure<RandomLoanGeneratorOptions>(configure =>
+builder.Services.Configure<RandomTxGeneratorOptions>(configure =>
 {
-    configure.ProviderAccountId = 0;
     configure.ProduceTopic = txTopic;
     //configure.ProduceDelay = TimeSpan.FromSeconds(5);
     configure.ProduceDelay = TimeSpan.FromMilliseconds(100);
 });
-builder.Services.AddHostedService<RandomLoanGenerator>();
+builder.Services.AddHostedService<RandomTxGenerator>();
 
 //Tye-only
 {
