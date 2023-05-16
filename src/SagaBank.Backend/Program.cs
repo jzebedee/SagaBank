@@ -198,14 +198,14 @@ static IEnumerable<InternalAccount> GenerateSeedAccounts()
         Frozen = false
     };
 
-    for (int i = 1; i <= 10_000; i++)
+    for (int i = 1; i <= 100; i++)
     {
         yield return new InternalAccount
         {
             AccountId = i,
             Balance = 0,
             BalanceAvailable = 0,
-            Frozen = i % 500 == 0
+            Frozen = i % 5 == 0
         };
     }
 }

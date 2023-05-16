@@ -21,8 +21,8 @@ public class RandomTxGenerator : BackgroundService
     {
         while(!stoppingToken.IsCancellationRequested)
         {
-            var accountDebit = _rand.Next(1, 10_001);
-            var accountCredit = _rand.Next(1, 10_001);
+            var accountDebit = _rand.Next(0, 101);
+            var accountCredit = _rand.Next(1, 101);
             var amount = (decimal)(_rand.NextDouble() * 1_000);
 
             //using var scope = _provider.CreateScope();
