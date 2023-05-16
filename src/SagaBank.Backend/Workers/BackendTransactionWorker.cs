@@ -246,6 +246,7 @@ public class BackendTransactionWorker : BackgroundService
             {
                 ITransactionSaga reply = bank.InternalAccounts.SingleOrDefault(ia => ia.AccountId == tx.AccountId) switch
                 {
+                    InternalAccount ia and { Frozen: true } => new TransactionUpdateBalanceAvailableFailed(tx.Request, tx.UpdateId, ia.AccountId, Problems("account-frozen", "Account was frozen")),
                     InternalAccount ia when (ia.BalanceAvailable += tx.Amount) >= 0 => new TransactionUpdateBalanceAvailableSuccess(tx.Request, tx.UpdateId, tx.Amount, tx.AccountId),
                     InternalAccount ia => new TransactionUpdateBalanceAvailableFailed(tx.Request, tx.UpdateId, ia.AccountId, Problems("balance-insufficient", "There were insufficient funds available to debit")),
                     null => new TransactionUpdateBalanceAvailableFailed(tx.Request, tx.UpdateId, tx.AccountId, Problems("bad-account", "Account was not found"))
