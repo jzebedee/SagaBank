@@ -1,0 +1,1 @@
+tye run --dashboard --port 8052 --watch # --debug sagabank-transactions
