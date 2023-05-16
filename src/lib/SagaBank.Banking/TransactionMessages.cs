@@ -15,6 +15,7 @@ namespace SagaBank.Banking;
 [MemoryPackUnion(8, typeof(TransactionUpdateBalanceFailed))]
 [MemoryPackUnion(9, typeof(TransactionUpdateBalanceSuccess))]
 [MemoryPackUnion(10, typeof(TransactionFinished))]
+[MemoryPackUnion(11, typeof(TransactionCompensated))]
 [JsonPolymorphic(UnknownDerivedTypeHandling = JsonUnknownDerivedTypeHandling.FallBackToNearestAncestor)]
 [JsonDerivedType(typeof(ITransactionSaga), "base")]
 [JsonDerivedType(typeof(TransactionStarting), "starting")]
@@ -28,6 +29,7 @@ namespace SagaBank.Banking;
 [JsonDerivedType(typeof(TransactionUpdateBalanceFailed), "update-bal-failed")]
 [JsonDerivedType(typeof(TransactionUpdateBalanceSuccess), "update-bal-success")]
 [JsonDerivedType(typeof(TransactionFinished), "finished")]
+[JsonDerivedType(typeof(TransactionCompensated), "compensated")]
 public partial interface ITransactionSaga
 {
     TransactionRequest Request { get; }
@@ -70,6 +72,9 @@ public partial record TransactionUpdateBalanceCompensation(TransactionRequest Re
 
 [MemoryPackable]
 public partial record TransactionFinished(TransactionRequest Request) : ITransactionSaga;
+
+[MemoryPackable]
+public partial record TransactionCompensated(TransactionRequest Request) : ITransactionSaga;
 
 [MemoryPackable]
 public partial record TransactionKey(int DebitAccountId);
