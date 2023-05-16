@@ -382,7 +382,7 @@ public class BackendTransactionWorker : BackgroundService
         static string GetTxType<TTx>(TTx tx) where TTx : ITransactionSaga => tx switch
         {
             ITransactionSagaUpdate update => $"{typeof(TTx).Name}:{update.UpdateId}",
-            ITransactionSaga => typeof(TTx).Name
+            _ => typeof(TTx).Name
         };
     }
 }
