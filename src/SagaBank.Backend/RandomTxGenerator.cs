@@ -2,15 +2,15 @@
 using SagaBank.Banking;
 using SagaBank.Kafka;
 
-public class RandomLoanGenerator : BackgroundService
+public class RandomTxGenerator : BackgroundService
 {
     //private readonly IServiceProvider _provider;
     private readonly Producer<TransactionKey, ITransactionSaga> _producer;
-    private readonly RandomLoanGeneratorOptions _options;
+    private readonly RandomTxGeneratorOptions _options;
 
     private readonly Random _rand = new();
 
-    public RandomLoanGenerator(/*IServiceProvider provider, */Producer<TransactionKey, ITransactionSaga> producer, IOptions<RandomLoanGeneratorOptions> options)
+    public RandomTxGenerator(/*IServiceProvider provider, */Producer<TransactionKey, ITransactionSaga> producer, IOptions<RandomTxGeneratorOptions> options)
     {
         //_provider = provider;
         _producer = producer;
@@ -21,7 +21,8 @@ public class RandomLoanGenerator : BackgroundService
     {
         while(!stoppingToken.IsCancellationRequested)
         {
-            var account = _rand.Next(1, 10_001);
+            var accountDebit = _rand.Next(1, 10_001);
+            var accountCredit = _rand.Next(1, 10_001);
             var amount = (decimal)(_rand.NextDouble() * 1_000);
 
             //using var scope = _provider.CreateScope();
@@ -30,8 +31,8 @@ public class RandomLoanGenerator : BackgroundService
             var txid = Ulid.NewUlid();
 
             _producer.Produce(_options.ProduceTopic,
-                new(DebitAccountId: _options.ProviderAccountId/*, CreditAccountId: account*/),
-                new TransactionStarting(new(txid, amount, _options.ProviderAccountId, account)));
+                new(DebitAccountId: accountDebit/*, CreditAccountId: account*/),
+                new TransactionStarting(new(txid, amount, accountDebit, accountCredit)));
 
             await Task.Delay(_options.ProduceDelay, stoppingToken);
         }
