@@ -15,6 +15,7 @@ services:
   replicas: 6
 #- name: sagabank-credits
 #  project: src/SagaBank.Credits/SagaBank.Credits.csproj
+# todo: strimzi
 
 - name: sagabank-kafka-zookeeper
   image: confluentinc/cp-zookeeper:7.3.2
