@@ -76,6 +76,8 @@ public sealed class Producer<TKey, TValue> : IDisposable
         // handler will be exposed via the Consume method in the main
         // consume loop and handled by the try/catch block there.
 
+        //can throw in state: Ready
+
         var producer = _producer.Value;
         producer.SendOffsetsToTransaction(
             c.Assignment.Select(a => new TopicPartitionOffset(a, c.Position(a))),
